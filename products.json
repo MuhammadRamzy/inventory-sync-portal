@@ -1,0 +1,1190 @@
+[
+  {
+    "id": "9eb68fe1-573a-4e42-8aa8-af0d8bd0b4f0",
+    "code": "CT103",
+    "name": "Colten Pillar Cock 7\" Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 948.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "32e73267-ae7a-4a5a-bcd6-6802af0af63f",
+    "code": "IR101",
+    "name": "Iris Pillar Cock Z Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 549.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "59b80c4f-9856-4ca0-903d-84b76c9160a6",
+    "code": "SL108",
+    "name": "Sleek Sink Cock 13\" Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 789.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "2d7223ff-2e6a-4e49-a790-614180adeaeb",
+    "code": "SL115",
+    "name": "Sleek Pillar Cock Long Neck Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 789.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "87e78ff3-5414-4d92-95fe-4af5ff2dc505",
+    "code": "CP109",
+    "name": "Orbit Pillar Cock Z Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 790.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "b41cfcba-f329-46bf-9039-919d38f5fc69",
+    "code": "CP104",
+    "name": "Cubix Prime Pillar Cock Z Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 1049.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "65bc11c5-8157-4dd5-884b-cd11ff4b9964",
+    "code": "SL109",
+    "name": "Sleek Pillar Cock 9\" Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 1070.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "d6dcae28-486d-456c-a216-7c3a0ee8fb84",
+    "code": "AR107",
+    "name": "Aria Pro Table Top (S) 12\" Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 1698.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "f76df4e3-9c27-40c4-8690-1c0717e05d32",
+    "code": "AR48",
+    "name": "Aria Table Top 12\" Z Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 1248.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "cfbfff82-b3ba-4c05-9ffa-7d0c1ac3f09d",
+    "code": "FLT104",
+    "name": "Florantine Pillar Cock 20MM Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 1298.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "c54ae607-dc37-46ab-84cd-26714b485990",
+    "code": "AT102",
+    "name": "Antique Pillar Cock Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 1185.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "31af0eac-f1f6-4f42-b014-8fe08c320687",
+    "code": "AR103",
+    "name": "Aria Long Body Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 968.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "aca526cb-8d79-4e96-934c-46fbd99bb2ea",
+    "code": "OP08",
+    "name": "Opel Long Body Heavy Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 948.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "a34a985d-d200-4a7c-b149-fba5e6b18ba1",
+    "code": null,
+    "name": "Jal Long Body Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 379.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "d3ec9f9e-86d9-408e-bea2-90a605c3a70d",
+    "code": "IR103",
+    "name": "IRIS Long Body Z Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 449.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "0d81953c-ab00-4e6f-8eb4-f0c4ee58a702",
+    "code": "FLT101",
+    "name": "Florantine Long Body 20MM Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 1249.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "45270f44-5a7c-4bb1-b78a-4c29a2de69fc",
+    "code": "OP03",
+    "name": "Opel Long Body Z Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 548.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "6199a96c-d8fa-47ab-9777-ccb765dc5f82",
+    "code": null,
+    "name": "Fusion Angle Cock Heavy Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 274.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "88dbaca7-e03f-4224-9bb3-9b767ada775f",
+    "code": "SC110",
+    "name": "Aria Mini Angle Cock Premium Ss Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 189.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "68da7773-343b-4e83-8b81-224b816aec01",
+    "code": "FLT105",
+    "name": "Florantine Swan Neck 20MM 18\" Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 1445.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "285fc67c-5040-41df-8ce7-a01bcd3ad716",
+    "code": "FLT103",
+    "name": "Florantine Sink Cock 15\" 20MM Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 1338.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "8001a506-59cd-440a-b2ce-13a4d7717059",
+    "code": "AR106",
+    "name": "Aria Sink Cock U BEND Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 1180.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "55f6f73e-9174-4d35-ae76-8ff4b27fe9bf",
+    "code": "AR109",
+    "name": "Aria Swan Neck Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 1238.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "165a2bf2-92f0-4407-b345-507f3c83b0e6",
+    "code": "CO109",
+    "name": "Aria Concealed 3/4\" Med Gs Z Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 845.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "dbb4b85d-5c65-449d-b666-8f5901d8a8bc",
+    "code": "OR105",
+    "name": "Ornamix Spout Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 969.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "74d3c84c-8573-4f23-9c05-4b80bd1bcd47",
+    "code": "CU105",
+    "name": "Cubix Spout Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 838.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "40b8a774-dda8-42e9-9345-8afb9b6ad797",
+    "code": "KF902",
+    "name": "JALLY MAT SWASTIK 5X5 WETTA",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 135.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "52721405-9e4b-458a-b574-bf87864477fd",
+    "code": "KF902",
+    "name": "JALLY MAT SWASTIK 6X6 WETTA",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 180.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "9417b5b5-b572-4f26-8d04-f7aa146fe054",
+    "code": "SH115",
+    "name": "Shower Arm 15\" Brass Nut Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 208.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "d15573f6-920d-4319-a3ab-9608aa67255c",
+    "code": "SH111",
+    "name": "Soft Round Shower Head 8\" Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 798.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "dfcd2f84-ee7e-4677-b128-95b925397f3c",
+    "code": "SH119",
+    "name": "Qearl Shower Head 6x6 Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 599.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "6787fd2e-0af5-4205-a99b-a532257eb205",
+    "code": "SH109",
+    "name": "Speed Shower Head 6x6 Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 596.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "52a19fdf-2b18-43c5-8d86-d19342939d2b",
+    "code": "COP105",
+    "name": "Waste Coupling Ss Premium F/T 4\" Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 169.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "4002828e-0ad5-490a-97ee-369ee2dbf2ad",
+    "code": null,
+    "name": "Acrylic Corner Shelf LX MET 10X10",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 490.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "a6ebc127-078a-4dd5-8d87-6499d9c5ff79",
+    "code": null,
+    "name": "Curve Table Top Rose Gold 12\" Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 2490.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "460e2521-233a-4153-aa70-0bf0e22d0480",
+    "code": "CP102",
+    "name": "Cubix Prime Table Top 12\" Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 2249.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "a285d7d0-65c7-4aca-9b29-013d596a2c29",
+    "code": "CP108",
+    "name": "Cubix Prime Sink Cock 18\" ZP (2YR WRNTY) WT",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 698.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "278aedb5-1179-4ec2-9f62-0bcfed914f03",
+    "code": "AR108",
+    "name": "Aria Sink Cock 22\" Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 1098.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "3f789f4b-ee76-4c3f-aed8-29e4700ec5c8",
+    "code": "FLT103",
+    "name": "Florantine Sink Cock 18\" 20MM Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 1398.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "fa8c0b47-0c3c-44e0-a4c7-1c1b450c5fc2",
+    "code": null,
+    "name": "Gem Pillar Cock Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 585.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "4aafa1ad-d726-4c8b-a36c-ffcba4ad7883",
+    "code": "CP103",
+    "name": "Cubix Prime Long Body Z Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 648.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "fe89266b-8abd-42a7-aa0c-284f1be187e5",
+    "code": "SC111",
+    "name": "Aria Mini Long Body Z Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 545.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "c2a4ac04-fdc9-45a3-aa17-12beca0e448d",
+    "code": "FU103",
+    "name": "Fusion Long Body FF Z Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 468.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "fabc9d92-2a7b-459f-a8de-87e05d07dd53",
+    "code": "KE101",
+    "name": "Cute Angle Cock Light Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 259.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "ff399fc8-f9f6-4dfe-ae1b-11f6dc19f079",
+    "code": "CT107",
+    "name": "Colten Pillar Cock Fancy Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 1298.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "bd72be9c-b924-445b-b245-aee9fc62045f",
+    "code": "CP108",
+    "name": "Cubix Prime Sink Cock 18\" ZP (2YR WRNTY) WT",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 698.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "c03d85df-3207-40ec-9c35-de6f9f531e41",
+    "code": "AR108",
+    "name": "Aria Sink Cock 22\" Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 1098.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "bf093329-c844-46c4-bc2f-e82a4d160071",
+    "code": "HF103",
+    "name": "Conti HF GUN Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 88.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "123bcd4f-cf6e-4860-8f4c-0c90d5f59692",
+    "code": "HF102",
+    "name": "Sparrow SS HF Gun Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 198.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "0c72d337-b708-46f6-b2d5-0a3126fd1a38",
+    "code": "HF110",
+    "name": "Laser Cut HF GUN Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 134.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "cb840050-c9d9-445d-9d95-17e5ef11f912",
+    "code": "HF109",
+    "name": "HYGROW HF GUN",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 106.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "cb8b3afc-72d5-4b25-8ff5-cf775a9fa2c1",
+    "code": "PMG2403",
+    "name": "SINGLE SOAP DISH GOLD",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 468.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "91eff768-c065-46e1-a27a-d66f7e4f3058",
+    "code": "PMG2408",
+    "name": "DOUBLE SOAP DISH GOLD",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 886.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "d4bfd2ed-ebb5-4cf0-bdaa-a04abfb2a0c1",
+    "code": "PMG2409",
+    "name": "SOAP DISH + TUMBLER HOLDER GOLD",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 898.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "a5caa8b7-6bf8-4242-aba9-013baa4eae96",
+    "code": "PMG2404",
+    "name": "Towel RING GOLD",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 536.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "c0b4e868-cacb-41c5-8b5e-924e8c7c7b95",
+    "code": "PVRB2106",
+    "name": "TUMBLER HOLDER RG SS 304 Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 475.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "a164fe6e-e7a0-4700-a523-d238d919a3d4",
+    "code": "PVRB2107",
+    "name": "LIQUID DISPENSER SS 304 RG Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 549.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "7d74c606-6c3c-47b3-b40d-ed84de57f5cc",
+    "code": "PVRB2103",
+    "name": "SOAP DISH SS 304 RG Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 380.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "3bd6abd5-7197-4299-8779-92f40258eb84",
+    "code": "PVRB2108",
+    "name": "DOUBLE SOAP DISH RG SS 304",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 690.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "61c0485e-42cc-4ed0-b18b-d6ff521c9587",
+    "code": "PVRB2109",
+    "name": "SOAP DISH + TUMBLER SS 304 RG Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 749.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "b31aeec3-8ae5-4746-8fc9-11e63a483b91",
+    "code": "PH4203",
+    "name": "SINGLE SOAP DISH",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 210.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "1dd762d5-5552-49d3-b49b-fa3e8e6eb005",
+    "code": "PH4208",
+    "name": "DOUBLE SOAP DISH",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 348.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "49c55d6c-27b0-4f11-bfb4-06575c5a2586",
+    "code": "PH4209",
+    "name": "SOAP DISH + TUMBLER",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 348.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "58057092-5c47-4847-a444-eb61786d366b",
+    "code": "PH4206",
+    "name": "TUMBLER HOLDER",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 210.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "cb2c8355-9bfe-4dba-9fe2-f9c1efcdebcb",
+    "code": "PV-2106",
+    "name": "PARV TUMBLER HOLDER SS 304",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 340.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "0a14db9c-3b0e-4024-a654-a01e3def0308",
+    "code": "PV-2103",
+    "name": "PARV SINGLE SOAP DISH SS 304",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 268.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "200afe49-fe9d-4969-a4c1-c6f8b7e30ed1",
+    "code": "PV-2108",
+    "name": "PARV DOUBLE SOAP DISH SS 304",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 498.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "05dc3cea-8584-4a57-9739-2f0c17d604e4",
+    "code": "PV-2109",
+    "name": "PARV SOAP DISH + TUMBLER SS 304",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 546.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "ba620df1-18c7-4f9a-957e-85201e762a10",
+    "code": "RSD01",
+    "name": "Royal Soap Dish CP Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 158.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "837c6dce-efdd-4e0f-bd1a-5d0662bdf201",
+    "code": "RSD02",
+    "name": "Royal Tumbler Holder CP Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 218.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "23a5acbc-7cab-4f99-aab2-838e953e8d54",
+    "code": "RSD07",
+    "name": "Royal Double Soap Dish CP Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 348.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "b257157c-c20a-4b4e-b1d9-4a697d1cc4b1",
+    "code": "RSD08",
+    "name": "Royal Soap Dish with Tumbler CP Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 398.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "3b059341-560e-456d-927e-4cab6992c8f3",
+    "code": "KSP206",
+    "name": "DOUBLE SOAP DISH",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 355.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "3d910ea6-5985-4a8c-950d-e7a19448fe5c",
+    "code": "KSP207",
+    "name": "SOAP DISH + TUMBLER",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 420.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "ddb6610b-c002-4b11-9a3f-9280f70b6059",
+    "code": "KRS601",
+    "name": "SINGLE SOAP DISH",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 199.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "afceeb4f-64f6-4eb6-aaf2-4f4d661153fa",
+    "code": "KRS606",
+    "name": "DOUBLE SOAP DISH",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 349.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "a94a0625-8f4d-4ae1-b6fe-98471dd517cb",
+    "code": "KRS607",
+    "name": "SOAP DISH WITH TUMBLER",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 410.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "6eaf4211-4a5f-49a4-8319-a9bf95fd9a57",
+    "code": "KD701",
+    "name": "SINGLE SOAP DISH WETTA",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 89.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "c5ff3171-c116-406a-8d9d-9a7f5b7c626c",
+    "code": "KD702",
+    "name": "TOOTH BRUSH HOLDER WETTA",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 138.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "ddb2e4e0-f573-415a-85ce-52c2a93c8be1",
+    "code": "KD703",
+    "name": "DOUBLE SOAP DISH WETTA",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 186.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "7daec6a1-5751-45c9-b26f-deefedad61c6",
+    "code": "KD704",
+    "name": "SOAP DISH WITH TUMBLER WETTA",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 238.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "15f7e85d-291f-4230-a960-16af422cc662",
+    "code": null,
+    "name": "Jumbo Tube 1 Mtr Brass Nut",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 155.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "657c76ea-7d5d-4b72-a09b-ba813f776703",
+    "code": null,
+    "name": "Jumbo Tube 1 Mtr SS Nut",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 138.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "a8ff4380-ab6d-4a55-b95a-bb3ecfbf940d",
+    "code": null,
+    "name": "HOOK ABS CHROME",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 23.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "16d8cd4f-423c-4983-ac9c-3e5aca992b85",
+    "code": "KD708",
+    "name": "TOWEL RING OVEL WETTA",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 156.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "2685bf33-130f-42d3-a82c-2baa8ca76dcf",
+    "code": "KD709",
+    "name": "TOWEL RING SQUARE WETTA",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 156.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "2017148b-21d9-461b-a8dc-ab93c21c9ba9",
+    "code": "KD710",
+    "name": "TOWEL RING J TYPE WETTA",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 156.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "ec8057a6-b6ae-4d1b-809d-771ca55fcd29",
+    "code": "KD711",
+    "name": "TOWEL RING ROUND WETTA",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 166.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "0783760a-1e8c-4873-8882-83881029d196",
+    "code": "RSD04",
+    "name": "Royal Towel Ring Round CP Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 198.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "cde94e6b-fe4d-496f-974e-a90f55e213c6",
+    "code": "PVRB2104",
+    "name": "TOWEL RING SS 304 RG Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 385.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "66de7a2e-f376-433b-b006-c992c6dd5e1b",
+    "code": "D501",
+    "name": "SINGLE SOAP DISH",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 68.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "f6570c1b-5540-491e-b461-67cd45c22cdc",
+    "code": "KRS613",
+    "name": "GLASS TUMBLER",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 228.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "b49a9f29-ba4a-4a8c-b4bb-d4446694f16a",
+    "code": "KR314",
+    "name": "GLASS LIQUID BOTTLE",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 288.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "1b84e30c-cdc5-4a54-a883-e65c33cbafab",
+    "code": "KR303",
+    "name": "TOWEL RING J Type Hvy",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 279.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "12757aeb-c5cf-462a-bdbc-9d6b7262bf38",
+    "code": "KR301",
+    "name": "SOAP DISH",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 199.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "d1268d30-560b-4bd5-9f2d-1de056c2bef8",
+    "code": "KR306",
+    "name": "DOUBLE SOAP DISH",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 349.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "61dd8571-e939-43fe-8a54-a6847327562c",
+    "code": "KR307",
+    "name": "Soap Dish + Tumbler",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 420.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "e2fa8c76-1761-4288-b693-d0f7bceb620b",
+    "code": "SH116",
+    "name": "Shower Arm 15\" Slim Brass Nut Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 198.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "51fc6952-38f5-4db9-adea-068c4a4f7071",
+    "code": "COP104",
+    "name": "Waste Coupling SS F/T Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 110.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "d675cfa4-fa1c-43ec-9087-3483d0d9cae0",
+    "code": "PA02",
+    "name": "A SS DOUBLE SOAP DISH Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 298.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "f8a8bd8e-6ea0-4ac1-91a6-841b988c6ea4",
+    "code": "PTMT-903-G",
+    "name": "Cubix Angle Cock Grey",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 124.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "3b7358ea-24e7-4411-a2a1-5325cf0672cc",
+    "code": "PTMT-908-G",
+    "name": "Cubix 2X1 Angle Cock Grey",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 244.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "49783ebd-49c8-4467-89c0-cb4ed95557d0",
+    "code": "PTMT-905-G",
+    "name": "Cubix 2X1 Bib Cock Grey",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 249.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "99d82d36-d3ea-4a6f-96f6-d73e3d5845b5",
+    "code": "PTMT-901-G",
+    "name": "Cubix Long Body Grey",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 124.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "bd3ec546-0eb0-4292-9b3d-19679e227301",
+    "code": "PTMT-904-G",
+    "name": "Cubix Extra Long Body Grey",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 162.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "bded0754-6511-4fc6-b24b-6b59a226aa22",
+    "code": "PTMT-902-G",
+    "name": "Cubix Piller Cock Grey",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 178.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "a46982e8-79f5-4777-8053-a1c508f4c6d2",
+    "code": "PTMT-906-G",
+    "name": "Cubix Sink Cock Grey",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 290.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "167a7c2b-489a-4b1c-beba-fc76d76782eb",
+    "code": "PTMT-907-G",
+    "name": "Cubix Swan Neck Grey",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 298.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "33716ebe-a9c8-4e9c-8f09-c6521ea47026",
+    "code": "HF111",
+    "name": "CROWN HF GUN Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 149.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "189baaf1-2761-41bd-a10a-07e151f729fa",
+    "code": "HF104",
+    "name": "Essco Brass Pin HF GUN Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 118.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "2044d3e2-d18a-481b-ab07-399d8fe19fea",
+    "code": "HF118",
+    "name": "Elegant HF GUN",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 179.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "295be995-5624-4dbc-b37d-e0a516096104",
+    "code": "HF117",
+    "name": "Crystal HF GUN Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 145.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "cff00de1-4b24-46c7-834d-fc52b996670f",
+    "code": "HF122",
+    "name": "Auto Clean HF GUN",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 290.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "0464aeee-09e0-439a-bef8-bf335bce319a",
+    "code": "HF105",
+    "name": "Floyd Black HF Gun Waterlife",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 190.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "4e10b608-5778-4efa-8bc4-74e5b047037b",
+    "code": "HF123",
+    "name": "Faster HF GUN Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 155.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "fb613398-5bdf-4c41-bff3-ae5e824ef022",
+    "code": "HF115",
+    "name": "Sparrow HF GUN Brass Pin",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 118.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "030287e5-c713-409b-8a4c-240b1493fbe7",
+    "code": "PV-2102",
+    "name": "PARV TOWEL ROD SS 304",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 480.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "f096e6d6-98a6-48c9-b6ea-4be458f1d2d7",
+    "code": "DX05",
+    "name": "Deluxe Towel Rod 24\" Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 388.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "0048c4ef-f7c1-4485-8555-bffb2b2c8f1e",
+    "code": "RSD05",
+    "name": "Royal Towel Rod CP Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 358.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "36fbd24d-1503-4f22-82e6-f71f2196fe3e",
+    "code": "PMG2402",
+    "name": "TOWEL ROD GOLD 24\"",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 838.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "5303f092-53d5-4bd9-a6cd-11d3cb9036a8",
+    "code": "KDS808",
+    "name": "TOWEL ROD ROUND 24\" WETTA",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 168.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "af4f2a15-5b3b-448e-aa3b-7c0e94ace8ba",
+    "code": null,
+    "name": "Towel Rod SS Square 24\" Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 285.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "dc6085da-2d08-42d8-b031-e2a91e0495c0",
+    "code": null,
+    "name": "Towel Rod SS Round Light 24\" Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 196.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "b5c11208-8bac-4fdb-884f-c47a650961a6",
+    "code": "TRS6405",
+    "name": "TOWEL ROD SINGLE ANTIQUE BLACK SS 24\"",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 348.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "3fee6e58-5686-4279-80c0-ad396204ceb0",
+    "code": null,
+    "name": "TOWEL ROD ROSE GOLD 24\"",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 348.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "21f490b1-b687-41fd-89bd-a2b41e0a2b6b",
+    "code": "KDS806",
+    "name": "TOWEL ROD ROUND 12\" WETTA",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 248.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "e486f488-062c-4f8f-a9bb-d755086ea7d4",
+    "code": "KDS806",
+    "name": "TOWEL ROD ROUND 24\" WETTA",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 274.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "446271c1-1b56-45f2-8290-e47e0eeb49f4",
+    "code": "KDS802",
+    "name": "TOWEL ROD SQUARE 24\" WETTA",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 328.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "dd2c6678-4a88-4346-b093-ba121106e257",
+    "code": "KS104",
+    "name": "TOWEL ROD SQ 24\"",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 498.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "55192d69-fab4-4aca-8794-e7f1fb0873d1",
+    "code": "KR304",
+    "name": "TOWEL ROD 24\"",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 476.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "e426d4cb-ca22-424d-aa0a-553559d3637d",
+    "code": "RB05",
+    "name": "Royal Towel Rod Black Wetta",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 368.0,
+    "defaultGstPercent": 18
+  },
+  {
+    "id": "1aa03ffb-2e16-49ef-abe1-4dd09d017d22",
+    "code": "TRS6402",
+    "name": "Towel Rod Round Aluminum Black 24\"",
+    "hsnCode": null,
+    "unit": "pcs",
+    "defaultRate": 225.0,
+    "defaultGstPercent": 18
+  }
+]
