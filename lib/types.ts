@@ -1,12 +1,17 @@
 export interface Product {
   itemCode: string;
   description: string;
-  category: "Health Faucets" | "Showers" | "Accessories";
+  category: string;
   mrp: number;
   wholesaleRate: number;
   stockCount: number;
   stockStatus: "In Stock" | "Low Stock" | "Out of Stock";
   lastUpdated: string;
+  image?: string; // base64 compressed data url
+}
+
+export interface AppSettings {
+  whatsappNumber: string;
 }
 
 export interface OrderItem {

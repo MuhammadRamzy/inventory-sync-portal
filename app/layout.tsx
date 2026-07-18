@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#111827",
+  themeColor: "#0f172a",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -41,8 +41,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full select-none">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+      </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased h-full text-gray-900 bg-gray-50`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased h-full text-slate-800 bg-slate-50/50`}
+        style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
       >
         <PWARegister />
         {children}

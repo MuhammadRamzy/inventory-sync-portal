@@ -1,4 +1,4 @@
-import { Product } from "./types";
+import { AppSettings, Product } from "./types";
 import { getStockStatus } from "./utils";
 
 const SEED_PRODUCTS: Product[] = [
@@ -256,7 +256,7 @@ export function addProduct(product: Omit<Product, "stockStatus" | "lastUpdated">
 
 export function updateProductInline(
   itemCode: string,
-  updates: Partial<Pick<Product, "wholesaleRate" | "stockCount">>
+  updates: Partial<Omit<Product, "itemCode">>
 ): boolean {
   const products = getStoredProducts();
   const index = products.findIndex((p) => p.itemCode === itemCode);
@@ -320,4 +320,75 @@ export function bulkUpdateProducts(
 
 export function resetDatabase(): void {
   saveStoredProducts(SEED_PRODUCTS);
+}
+
+const SETTINGS_KEY = "wetta_settings";
+const DEFAULT_SETTINGS: AppSettings = {
+  whatsappNumber: "9388833888",
+};
+
+export function getAppSettings(): AppSettings {
+  if (typeof window === "undefined") return DEFAULT_SETTINGS;
+  const data = localStorage.getItem(SETTINGS_KEY);
+  if (!data) return DEFAULT_SETTINGS;
+  try {
+    return JSON.parse(data);
+  } catch {
+    return DEFAULT_SETTINGS;
+  }
+}
+
+export function saveAppSettings(settings: AppSettings): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+
+export function differentialStockSync(
+  updates: { itemCode: string; description: string; stockCount: number; mrp: number; category: string }[]
+): { successCount: number; createdCount: number } {
+  const products = getStoredProducts();
+  let successCount = 0;
+  let createdCount = 0;
+
+  // Copy products array to perform modifications safely
+  const updatedProducts = [...products];
+
+  updates.forEach((update) => {
+    const cleanCode = update.itemCode.trim().toUpperCase();
+    const cleanDesc = update.description.trim().toUpperCase();
+
+    // Check if the product matches itemCode or description case-insensitive
+    const existingIndex = updatedProducts.findIndex(
+      (p) => p.itemCode.trim().toUpperCase() === cleanCode || p.description.trim().toUpperCase() === cleanDesc
+    );
+
+    if (existingIndex !== -1) {
+      const current = updatedProducts[existingIndex];
+      updatedProducts[existingIndex] = {
+        ...current,
+        stockCount: update.stockCount,
+        stockStatus: getStockStatus(update.stockCount),
+        mrp: update.mrp,
+        lastUpdated: new Date().toISOString(),
+      };
+      successCount++;
+    } else {
+      // Create new product
+      const newProduct: Product = {
+        itemCode: cleanCode,
+        description: update.description.trim(),
+        category: update.category,
+        mrp: update.mrp,
+        wholesaleRate: Math.round(update.mrp * 0.7), // Default wholesale to 70% of MRP
+        stockCount: update.stockCount,
+        stockStatus: getStockStatus(update.stockCount),
+        lastUpdated: new Date().toISOString(),
+      };
+      updatedProducts.push(newProduct);
+      createdCount++;
+    }
+  });
+
+  saveStoredProducts(updatedProducts);
+  return { successCount, createdCount };
 }

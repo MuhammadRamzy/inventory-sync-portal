@@ -16,19 +16,26 @@ import {
   ArrowUpDown,
   Upload,
   UserCheck,
-  LogOut
+  LogOut,
+  Settings,
+  Layers,
+  Plus
 } from "lucide-react";
 import Papa from "papaparse";
-import { Product } from "@/lib/types";
+import * as XLSX from "xlsx";
+import { AppSettings, Product } from "@/lib/types";
 import {
   getStoredProducts,
   saveStoredProducts,
   addProduct,
   updateProductInline,
   bulkUpdateProducts,
-  resetDatabase
+  resetDatabase,
+  getAppSettings,
+  saveAppSettings,
+  differentialStockSync
 } from "@/lib/db";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, compressImage, parseTallyParticulars } from "@/lib/utils";
 import StockBadge from "@/components/StockBadge";
 import SearchBar from "@/components/SearchBar";
 import CategoryFilterPills from "@/components/CategoryFilterPills";
@@ -51,7 +58,7 @@ interface CsvRowPreview {
 }
 
 export default function AdminCommandCenter() {
-  const [activeTab, setActiveTab] = useState<"master" | "manual" | "sync">("master");
+  const [activeTab, setActiveTab] = useState<"master" | "manual" | "sync" | "settings">("master");
   const [products, setProducts] = useState<Product[]>([]);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -63,15 +70,20 @@ export default function AdminCommandCenter() {
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [editRate, setEditRate] = useState<string>("");
   const [editStock, setEditStock] = useState<string>("");
+  const [editImage, setEditImage] = useState<string>("");
+
+  // --- Settings States ---
+  const [whatsappNumber, setWhatsappNumber] = useState("");
 
   // --- Manual Product Entry States ---
   const [manualForm, setManualForm] = useState({
     itemCode: "",
     description: "",
-    category: "Health Faucets" as Product["category"],
+    category: "Health Faucets" as string,
     mrp: "",
     wholesaleRate: "",
     stockCount: "",
+    image: "",
   });
   const [manualErrors, setManualErrors] = useState<Record<string, string>>({});
 
@@ -102,6 +114,9 @@ export default function AdminCommandCenter() {
     setCheckingAuth(false);
 
     loadProducts();
+    const settings = getAppSettings();
+    setWhatsappNumber(settings.whatsappNumber);
+
     window.addEventListener("wetta_db_update", loadProducts);
     return () => {
       window.removeEventListener("wetta_db_update", loadProducts);
@@ -128,6 +143,21 @@ export default function AdminCommandCenter() {
     showToast("success", "Session cleared. Operator logged out.");
   };
 
+  const handleSaveSettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!whatsappNumber.trim()) {
+      showToast("error", "WhatsApp number cannot be empty.");
+      return;
+    }
+    const cleanNumber = whatsappNumber.replace(/[^0-9]/g, "");
+    if (cleanNumber.length < 10) {
+      showToast("error", "Please enter a valid WhatsApp phone number.");
+      return;
+    }
+    saveAppSettings({ whatsappNumber: cleanNumber });
+    showToast("success", "Settings saved successfully.");
+  };
+
   // Toast helper
   const showToast = (type: "success" | "error", message: string) => {
     setToast({ type, message });
@@ -150,6 +180,7 @@ export default function AdminCommandCenter() {
     setEditingRow(product.itemCode);
     setEditRate(product.wholesaleRate.toString());
     setEditStock(product.stockCount.toString());
+    setEditImage(product.image || "");
   };
 
   const cancelEditing = () => {
@@ -172,6 +203,7 @@ export default function AdminCommandCenter() {
     const success = updateProductInline(itemCode, {
       wholesaleRate: rateNum,
       stockCount: stockNum,
+      image: editImage,
     });
 
     if (success) {
@@ -284,6 +316,7 @@ export default function AdminCommandCenter() {
       mrp: parseFloat(manualForm.mrp),
       wholesaleRate: parseFloat(manualForm.wholesaleRate),
       stockCount: parseInt(manualForm.stockCount, 10),
+      image: manualForm.image,
     });
 
     if (result.success) {
@@ -296,6 +329,7 @@ export default function AdminCommandCenter() {
         mrp: "",
         wholesaleRate: "",
         stockCount: "",
+        image: "",
       });
       setManualErrors({});
     } else {
@@ -320,159 +354,268 @@ export default function AdminCommandCenter() {
     setDragActive(false);
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      processCsvFile(e.dataTransfer.files[0]);
+      processSyncFile(e.dataTransfer.files[0]);
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      processCsvFile(e.target.files[0]);
+      processSyncFile(e.target.files[0]);
     }
   };
 
-  const processCsvFile = (file: File) => {
+  const processSyncFile = (file: File) => {
     setCsvFileName(file.name);
-    
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        const rows = results.data as Record<string, string>[];
-        if (rows.length === 0) {
-          showToast("error", "The uploaded CSV file is empty.");
-          setParsedRows([]);
-          return;
+    const isExcel = file.name.endsWith(".xls") || file.name.endsWith(".xlsx");
+
+    if (isExcel) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: "array" });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          
+          const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+          if (rows.length === 0) {
+            showToast("error", "The uploaded file is empty.");
+            setParsedRows([]);
+            return;
+          }
+
+          let foundCategory = "";
+          for (let i = 0; i < Math.min(8, rows.length); i++) {
+            const row = rows[i];
+            if (row) {
+              for (let j = 0; j < row.length; j++) {
+                const val = String(row[j] || "").trim();
+                if (val === "Table Top" || val === "Health Faucets" || val === "Showers" || val === "Accessories") {
+                  foundCategory = val;
+                  break;
+                }
+              }
+            }
+            if (foundCategory) break;
+          }
+          const category = foundCategory || "Table Top";
+
+          let headerRowIndex = -1;
+          for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            if (row && row[0] === "Particulars") {
+              headerRowIndex = i;
+              break;
+            }
+          }
+
+          let dataStartIndex = headerRowIndex !== -1 ? headerRowIndex + 3 : 9;
+          const previewList: CsvRowPreview[] = [];
+          
+          for (let i = dataStartIndex; i < rows.length; i++) {
+            const row = rows[i];
+            if (!row || row.length === 0) continue;
+            
+            const rawParticulars = String(row[0] || "").trim();
+            if (!rawParticulars || rawParticulars === "Grand Total" || rawParticulars === "Particulars") continue;
+            
+            // Extract raw values, parse text like "18 pcs" into 18
+            const rawStockText = String(row[1] || "0");
+            const quantity = parseInt(rawStockText, 10);
+            const rate = parseFloat(String(row[2] || "0"));
+            
+            const { itemCode, description } = parseTallyParticulars(rawParticulars);
+            
+            const matchedProd = products.find(
+              (p) => p.itemCode.toUpperCase() === itemCode.toUpperCase() || p.description.toLowerCase() === description.toLowerCase()
+            );
+
+            const currentStock = matchedProd ? matchedProd.stockCount : 0;
+            const currentMrp = matchedProd ? matchedProd.mrp : 0;
+            const diff = (isNaN(quantity) ? 0 : quantity) - currentStock;
+            
+            let status: CsvRowPreview["status"] = "Matched";
+            if (!matchedProd) {
+              status = "Unrecognized";
+            } else if (diff === 0 && rate === matchedProd.mrp) {
+              status = "No change";
+            }
+            
+            previewList.push({
+              itemCode,
+              description,
+              currentStock,
+              newStock: isNaN(quantity) ? 0 : quantity,
+              difference: diff,
+              currentMrp,
+              newMrp: isNaN(rate) ? 0 : rate,
+              status,
+              category
+            });
+          }
+          
+          setParsedRows(previewList);
+          showToast("success", `Parsed ${previewList.length} products from Excel.`);
+        } catch (err: any) {
+          console.error("Excel parse error:", err);
+          showToast("error", `Failed to parse Excel file: ${err.message}`);
         }
-
-        // Header normalization function
-        const normalizeHeader = (h: string) => h.trim().toLowerCase().replace(/[\s_-]/g, "");
-
-        // Find keys mapping in the first row
-        const firstRow = rows[0];
-        const keys = Object.keys(firstRow);
-        
-        let codeKey = "";
-        let stockKey = "";
-
-        keys.forEach((key) => {
-          const norm = normalizeHeader(key);
-          if (norm === "itemcode" || norm === "code" || norm === "item") {
-            codeKey = key;
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          const rows = results.data as Record<string, string>[];
+          if (rows.length === 0) {
+            showToast("error", "The uploaded CSV file is empty.");
+            setParsedRows([]);
+            return;
           }
-          if (
-            norm === "newstockcount" ||
-            norm === "stockcount" ||
-            norm === "newstock" ||
-            norm === "stock" ||
-            norm === "count" ||
-            norm === "qty"
-          ) {
-            stockKey = key;
+
+          const normalizeHeader = (h: string) => h.trim().toLowerCase().replace(/[\s_-]/g, "");
+
+          const firstRow = rows[0];
+          const keys = Object.keys(firstRow);
+          
+          let codeKey = "";
+          let stockKey = "";
+          let mrpKey = "";
+
+          keys.forEach((key) => {
+            const norm = normalizeHeader(key);
+            if (norm === "itemcode" || norm === "code" || norm === "item") {
+              codeKey = key;
+            }
+            if (
+              norm === "newstockcount" ||
+              norm === "stockcount" ||
+              norm === "newstock" ||
+              norm === "stock" ||
+              norm === "count" ||
+              norm === "qty" ||
+              norm === "quantity"
+            ) {
+              stockKey = key;
+            }
+            if (norm === "mrp" || norm === "rate" || norm === "price") {
+              mrpKey = key;
+            }
+          });
+
+          if (!codeKey || !stockKey) {
+            codeKey = keys[0] || "";
+            stockKey = keys[1] || "";
           }
-        });
+          if (!mrpKey) {
+            mrpKey = keys[2] || "";
+          }
 
-        if (!codeKey || !stockKey) {
-          // Fallback if normalization didn't find clear keys - take first and second column
-          codeKey = keys[0] || "";
-          stockKey = keys[1] || "";
-        }
+          const previewList: CsvRowPreview[] = rows.map((row) => {
+            const rawCode = (row[codeKey] || "").trim();
+            const rawStock = (row[stockKey] || "").trim();
+            const rawMrp = mrpKey ? (row[mrpKey] || "").trim() : "";
 
-        const previewList: CsvRowPreview[] = rows.map((row) => {
-          const rawCode = (row[codeKey] || "").trim();
-          const rawStock = (row[stockKey] || "").trim();
+            const parsedStock = parseInt(rawStock, 10);
+            const parsedMrp = rawMrp ? parseFloat(rawMrp) : 0;
+            
+            const { itemCode, description } = parseTallyParticulars(rawCode);
 
-          const parsedStock = parseInt(rawStock, 10);
-          const matchedProd = products.find(
-            (p) => p.itemCode.toUpperCase() === rawCode.toUpperCase()
-          );
+            const matchedProd = products.find(
+              (p) => p.itemCode.toUpperCase() === itemCode.toUpperCase()
+            );
 
-          if (!rawCode) {
+            if (!rawCode) {
+              return {
+                itemCode: "[EMPTY]",
+                description: "-",
+                currentStock: 0,
+                newStock: 0,
+                difference: 0,
+                status: "Malformed",
+                errorDetails: "Empty/Missing Item Code.",
+              };
+            }
+
+            if (isNaN(parsedStock) || parsedStock < 0) {
+              return {
+                itemCode,
+                description: matchedProd ? matchedProd.description : description,
+                currentStock: matchedProd ? matchedProd.stockCount : 0,
+                newStock: 0,
+                difference: 0,
+                status: "Malformed",
+                errorDetails: `Invalid numeric quantity count: '${rawStock}'.`,
+              };
+            }
+
+            const currentStock = matchedProd ? matchedProd.stockCount : 0;
+            const currentMrp = matchedProd ? matchedProd.mrp : 0;
+            const newMrp = isNaN(parsedMrp) || parsedMrp <= 0 ? currentMrp : parsedMrp;
+            const diff = parsedStock - currentStock;
+            
+            let status: CsvRowPreview["status"] = "Matched";
+            if (!matchedProd) {
+              status = "Unrecognized";
+            } else if (diff === 0 && newMrp === currentMrp) {
+              status = "No change";
+            }
+
             return {
-              itemCode: "[EMPTY]",
-              description: "-",
-              currentStock: 0,
-              newStock: 0,
-              difference: 0,
-              status: "Malformed",
-              errorDetails: "Empty/Missing Item Code.",
-            };
-          }
-
-          if (isNaN(parsedStock) || parsedStock < 0) {
-            return {
-              itemCode: rawCode,
-              description: matchedProd ? matchedProd.description : "-",
-              currentStock: matchedProd ? matchedProd.stockCount : 0,
-              newStock: 0,
-              difference: 0,
-              status: "Malformed",
-              errorDetails: `Invalid numeric quantity count: '${rawStock}'.`,
-            };
-          }
-
-          if (!matchedProd) {
-            return {
-              itemCode: rawCode,
-              description: "-",
-              currentStock: 0,
+              itemCode,
+              description: matchedProd ? matchedProd.description : description,
+              currentStock,
               newStock: parsedStock,
-              difference: 0,
-              status: "Unrecognized",
-              errorDetails: "Code not found in current inventory catalog.",
+              difference: diff,
+              currentMrp,
+              newMrp,
+              status,
+              category: matchedProd ? matchedProd.category : "Table Top",
             };
-          }
+          });
 
-          const diff = parsedStock - matchedProd.stockCount;
-          const status = diff === 0 ? "No change" : "Matched";
-
-          return {
-            itemCode: matchedProd.itemCode,
-            description: matchedProd.description,
-            currentStock: matchedProd.stockCount,
-            newStock: parsedStock,
-            difference: diff,
-            status: status as CsvRowPreview["status"],
-          };
-        });
-
-        setParsedRows(previewList);
-        showToast("success", `Parsed ${previewList.length} rows from CSV.`);
-      },
-      error: (error) => {
-        console.error("PapaParse error:", error);
-        showToast("error", `Failed to parse CSV file: ${error.message}`);
-      },
-    });
+          setParsedRows(previewList);
+          showToast("success", `Parsed ${previewList.length} rows from CSV.`);
+        },
+        error: (error) => {
+          console.error("PapaParse error:", error);
+          showToast("error", `Failed to parse CSV file: ${error.message}`);
+        },
+      });
+    }
   };
 
   const handleCommitSync = () => {
-    const validMatchedRows = parsedRows.filter((r) => r.status === "Matched");
+    const validRows = parsedRows.filter((r) => r.status === "Matched" || r.status === "Unrecognized");
     
-    if (validMatchedRows.length === 0) {
-      showToast("error", "No valid 'Matched' rows to commit updates for.");
+    if (validRows.length === 0) {
+      showToast("error", "No valid rows to commit updates for.");
       return;
     }
 
-    const updates = validMatchedRows.map((r) => ({
+    const updates = validRows.map((r) => ({
       itemCode: r.itemCode,
-      newStockCount: r.newStock,
+      description: r.description,
+      stockCount: r.newStock,
+      mrp: r.newMrp || 0,
+      category: r.category || "Table Top"
     }));
 
-    const result = bulkUpdateProducts(updates);
+    const result = differentialStockSync(updates);
     
     showToast(
       "success",
-      `Tally Bulk Sync Complete! Committed updates to ${result.successCount} items.`
+      `Tally Bulk Sync Complete! Updated ${result.successCount} items and created ${result.createdCount} new items.`
     );
 
-    // Reset CSV Sync panel
     setCsvFileName(null);
     setParsedRows([]);
     setShowSyncConfirm(false);
     setActiveTab("master");
   };
 
-  const validRowsCount = parsedRows.filter((r) => r.status === "Matched").length;
+  const validRowsCount = parsedRows.filter((r) => r.status === "Matched" || r.status === "Unrecognized").length;
 
   if (checkingAuth) {
     return (
@@ -621,6 +764,16 @@ export default function AdminCommandCenter() {
             >
               <RefreshCw className="h-4 w-4" /> Bulk Tally Sync
             </button>
+            <button
+              onClick={() => setActiveTab("settings")}
+              className={`flex items-center gap-2 px-3 py-2 text-xs font-bold uppercase tracking-wider border shrink-0 transition-colors rounded-none ${
+                activeTab === "settings"
+                  ? "bg-indigo-600 border-indigo-600 text-white"
+                  : "bg-transparent border-transparent text-gray-400 hover:bg-gray-800 hover:text-white"
+              }`}
+            >
+              <Settings className="h-4 w-4" /> Config Settings
+            </button>
             
             <button
               onClick={handleLogout}
@@ -653,11 +806,13 @@ export default function AdminCommandCenter() {
               {activeTab === "master" && "Master Tab"}
               {activeTab === "manual" && "Form Tab"}
               {activeTab === "sync" && "Sync Tab"}
+              {activeTab === "settings" && "Settings Tab"}
             </span>
             <h2 className="text-sm font-extrabold text-gray-800 uppercase tracking-wider">
               {activeTab === "master" && "Inventory Master Database"}
               {activeTab === "manual" && "Manual Product Entry Panel"}
-              {activeTab === "sync" && "Tally CSV Bulk Stock Sync"}
+              {activeTab === "sync" && "Tally CSV/Excel Bulk Stock Sync"}
+              {activeTab === "settings" && "Quotation Contact Configuration"}
             </h2>
           </div>
           
@@ -720,14 +875,15 @@ export default function AdminCommandCenter() {
               {/* Master Products Table */}
               <div className="bg-white border border-gray-300 shadow-sm rounded-none overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="erp-table">
+                  <table className="erp-table animate-fade-in">
                     <thead>
-                      <tr>
-                        <th className="w-24 cursor-pointer hover:bg-gray-200" onClick={() => handleSort("itemCode")}>
+                      <tr className="bg-gray-100/75 border-b border-gray-300 text-xs font-bold text-gray-700 uppercase tracking-wider text-left">
+                        <th className="w-28 cursor-pointer hover:bg-gray-200" onClick={() => handleSort("itemCode")}>
                           <div className="flex items-center gap-1">
                             Item Code <ArrowUpDown className="h-3 w-3" />
                           </div>
                         </th>
+                        <th className="w-16">Img</th>
                         <th className="cursor-pointer hover:bg-gray-200" onClick={() => handleSort("description")}>
                           <div className="flex items-center gap-1">
                             Description <ArrowUpDown className="h-3 w-3" />
@@ -760,7 +916,7 @@ export default function AdminCommandCenter() {
                     <tbody>
                       {filteredMasterProducts.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="text-center py-8 text-gray-500">
+                          <td colSpan={9} className="text-center py-8 text-gray-500">
                             No records found matching search queries.
                           </td>
                         </tr>
@@ -770,6 +926,40 @@ export default function AdminCommandCenter() {
                           return (
                             <tr key={p.itemCode} className={isEditing ? "bg-indigo-50/40" : ""}>
                               <td className="num-mono font-bold">{p.itemCode}</td>
+                              <td className="w-16 py-1">
+                                {isEditing ? (
+                                  <div className="relative h-8 w-8 bg-gray-100 border border-dashed border-indigo-400 text-gray-400 hover:bg-indigo-50 cursor-pointer flex items-center justify-center">
+                                    {editImage ? (
+                                      <img src={editImage} alt={p.itemCode} className="h-full w-full object-cover animate-fade-in" />
+                                    ) : (
+                                      <Plus className="h-4 w-4" />
+                                    )}
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      onChange={async (e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          try {
+                                            const compressed = await compressImage(file);
+                                            setEditImage(compressed);
+                                          } catch {
+                                            showToast("error", "Failed to compress image.");
+                                          }
+                                        }
+                                      }}
+                                      className="absolute inset-0 opacity-0 cursor-pointer"
+                                      title="Upload image"
+                                    />
+                                  </div>
+                                ) : p.image ? (
+                                  <img src={p.image} alt={p.itemCode} className="h-8 w-8 object-cover border border-gray-200" />
+                                ) : (
+                                  <div className="h-8 w-8 bg-gray-100 flex items-center justify-center border border-gray-200 text-gray-400">
+                                    <Layers className="h-4 w-4" />
+                                  </div>
+                                )}
+                              </td>
                               <td className="font-semibold text-gray-800">{p.description}</td>
                               <td className="text-[10px] font-bold text-gray-500 uppercase">{p.category}</td>
                               <td className="num-mono text-right text-gray-500">{formatCurrency(p.mrp)}</td>
@@ -990,6 +1180,53 @@ export default function AdminCommandCenter() {
                   </div>
                 </div>
 
+                {/* Product Image */}
+                <div className="space-y-1">
+                  <label htmlFor="image" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Product Image (Optional)
+                  </label>
+                  <div className="flex items-center gap-4 border border-gray-300 p-3 bg-gray-50">
+                    <div className="h-16 w-16 bg-white border border-gray-300 flex items-center justify-center text-gray-400 shrink-0">
+                      {manualForm.image ? (
+                        <img src={manualForm.image} alt="Preview" className="h-full w-full object-cover animate-fade-in" />
+                      ) : (
+                        <Layers className="h-8 w-8" />
+                      )}
+                    </div>
+                    <div className="flex-1 space-y-1 min-w-0">
+                      <input
+                        type="file"
+                        id="image"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            try {
+                              const compressed = await compressImage(file);
+                              setManualForm(prev => ({ ...prev, image: compressed }));
+                            } catch {
+                              showToast("error", "Failed to compress image.");
+                            }
+                          }
+                        }}
+                        className="text-xs text-gray-500 file:mr-4 file:py-1 file:px-3 file:border file:border-gray-300 file:bg-gray-50 file:hover:bg-gray-100 file:text-xs file:font-bold file:uppercase file:rounded-none file:cursor-pointer w-full"
+                      />
+                      <p className="text-[10px] text-gray-400 truncate">
+                        Images are compressed client-side to fit within storage.
+                      </p>
+                    </div>
+                    {manualForm.image && (
+                      <button
+                        type="button"
+                        onClick={() => setManualForm(prev => ({ ...prev, image: "" }))}
+                        className="erp-btn erp-btn-secondary py-1 text-xs shrink-0"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 {/* Form actions */}
                 <div className="pt-4 flex justify-end gap-2 border-t border-gray-200">
                   <button
@@ -1022,6 +1259,45 @@ export default function AdminCommandCenter() {
           )}
 
           {/* ============================================================== */}
+          {/* TAB 4: SETTINGS PANEL                                          */}
+          {/* ============================================================== */}
+          {activeTab === "settings" && (
+            <div className="bg-white border border-gray-300 shadow-sm max-w-md mx-auto rounded-none animate-fade-in">
+              <div className="bg-gray-50 border-b border-gray-300 px-4 py-2.5">
+                <span className="font-bold text-xs uppercase tracking-wider text-gray-700 flex items-center gap-1.5">
+                  <Settings className="h-4 w-4 text-indigo-600" /> WhatsApp Contact Configuration
+                </span>
+              </div>
+              <form onSubmit={handleSaveSettings} className="p-4 md:p-6 space-y-4 font-sans text-sm">
+                <div className="space-y-1">
+                  <label htmlFor="whatsappNumber" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    WhatsApp Contact Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="whatsappNumber"
+                    value={whatsappNumber}
+                    onChange={(e) => setWhatsappNumber(e.target.value)}
+                    placeholder="E.G., 919388833888"
+                    className="w-full erp-input num-mono"
+                  />
+                  <p className="text-[10px] text-gray-400">
+                    Enter the WhatsApp phone number (with country code, no + or spaces) where quotation requests from the sales cart will be directed.
+                  </p>
+                </div>
+                <div className="pt-4 flex justify-end border-t border-gray-200">
+                  <button
+                    type="submit"
+                    className="erp-btn erp-btn-primary bg-indigo-600 border-indigo-600 hover:bg-indigo-700 text-white font-bold"
+                  >
+                    Save Settings
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* ============================================================== */}
           {/* TAB 3: BULK TALLY SYNC                                         */}
           {/* ============================================================== */}
           {activeTab === "sync" && (
@@ -1030,7 +1306,7 @@ export default function AdminCommandCenter() {
               {/* Drag & Drop Upload Zone */}
               <div className="bg-white border border-gray-300 shadow-sm p-4 md:p-6 rounded-none space-y-4">
                 <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">
-                  Upload Stock Export from Tally ERP
+                  Upload Stock Export from Tally ERP (Excel/CSV)
                 </h3>
                 
                 <div
@@ -1047,15 +1323,15 @@ export default function AdminCommandCenter() {
                     type="file"
                     ref={fileInputRef}
                     onChange={handleFileChange}
-                    accept=".csv"
+                    accept=".csv,.xls,.xlsx"
                     className="hidden"
                   />
-                  <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                  <Upload className="h-8 w-8 text-gray-400 mb-2 animate-bounce" />
                   <p className="text-sm font-bold text-gray-700">
-                    {csvFileName ? `File Selected: ${csvFileName}` : "Drag and drop your Tally stock export CSV here"}
+                    {csvFileName ? `File Selected: ${csvFileName}` : "Drag and drop your Tally Excel (.xls/.xlsx) or CSV here"}
                   </p>
                   <p className="text-xs text-gray-400 mt-1">
-                    Accepts column headers: <code className="font-mono bg-gray-200 px-1 text-[10px] text-gray-700">itemCode</code> / <code className="font-mono bg-gray-200 px-1 text-[10px] text-gray-700">newStockCount</code> (or similar)
+                    Automatically processes Particulars, Closing Balance Quantity (with units), and Rate as MRP.
                   </p>
                 </div>
               </div>
@@ -1099,16 +1375,16 @@ export default function AdminCommandCenter() {
                       Parsed: {parsedRows.length} Rows
                     </span>
                     <span className="bg-green-50 text-green-700 border border-green-300 px-2 py-0.5 rounded-none num-mono">
-                      Matched (Valid): {validRowsCount} Rows
+                      Valid updates: {parsedRows.filter(r => r.status === "Matched").length} Rows
                     </span>
-                    <span className="bg-yellow-50 text-yellow-700 border border-yellow-300 px-2 py-0.5 rounded-none num-mono">
-                      Unrecognized: {parsedRows.filter((r) => r.status === "Unrecognized").length} Rows
+                    <span className="bg-blue-50 text-blue-700 border border-blue-300 px-2 py-0.5 rounded-none num-mono">
+                      New products: {parsedRows.filter((r) => r.status === "Unrecognized").length} Rows
                     </span>
                     <span className="bg-gray-100 text-gray-400 border border-gray-300 px-2 py-0.5 rounded-none num-mono">
                       No Change: {parsedRows.filter((r) => r.status === "No change").length} Rows
                     </span>
                     <span className="bg-red-50 text-red-700 border border-red-300 px-2 py-0.5 rounded-none num-mono">
-                      Malformed (Error): {parsedRows.filter((r) => r.status === "Malformed").length} Rows
+                      Malformed: {parsedRows.filter((r) => r.status === "Malformed").length} Rows
                     </span>
                   </div>
 
@@ -1119,10 +1395,12 @@ export default function AdminCommandCenter() {
                         <tr>
                           <th className="w-24">Item Code</th>
                           <th>Description</th>
-                          <th className="w-28 text-right font-mono">Current Stock</th>
-                          <th className="w-28 text-right font-mono">New Stock</th>
-                          <th className="w-24 text-center font-mono">Diff</th>
-                          <th className="w-36">Row Status</th>
+                          <th className="w-20 text-right font-mono">Old Stock</th>
+                          <th className="w-20 text-right font-mono">New Stock</th>
+                          <th className="w-16 text-center font-mono">Diff</th>
+                          <th className="w-28 text-right font-mono">Old MRP</th>
+                          <th className="w-28 text-right font-mono">New MRP</th>
+                          <th className="w-28">Row Status</th>
                           <th>Notes / Warnings</th>
                         </tr>
                       </thead>
@@ -1137,7 +1415,7 @@ export default function AdminCommandCenter() {
                               statusColor = "text-green-700 bg-green-50 border-green-200";
                               break;
                             case "Unrecognized":
-                              statusColor = "text-yellow-700 bg-yellow-50 border-yellow-200";
+                              statusColor = "text-blue-700 bg-blue-50 border-blue-200";
                               break;
                             case "No change":
                               statusColor = "text-gray-500 bg-gray-50 border-gray-200";
@@ -1162,6 +1440,8 @@ export default function AdminCommandCenter() {
                               <td className="num-mono text-right text-gray-500">{row.currentStock}</td>
                               <td className="num-mono text-right font-bold text-gray-800">{row.newStock}</td>
                               <td className={`num-mono text-center ${diffColor}`}>{diffText}</td>
+                              <td className="num-mono text-right text-gray-500">{formatCurrency(row.currentMrp || 0)}</td>
+                              <td className="num-mono text-right font-bold text-gray-800">{formatCurrency(row.newMrp || 0)}</td>
                               <td>
                                 <span className={`inline-block text-[10px] font-bold border px-1.5 py-0.5 rounded-none uppercase tracking-wide ${statusColor}`}>
                                   {row.status}
@@ -1174,12 +1454,18 @@ export default function AdminCommandCenter() {
                                   </span>
                                 )}
                                 {row.status === "Unrecognized" && (
-                                  <span className="text-yellow-600 flex items-center gap-1 font-bold">
-                                    <AlertCircle className="h-3 w-3 shrink-0" /> Will be skipped during sync.
+                                  <span className="text-blue-600 flex items-center gap-1 font-bold">
+                                    <CheckCircle2 className="h-3 w-3 shrink-0" /> Will add as new product in &quot;{row.category}&quot;.
                                   </span>
                                 )}
-                                {row.status === "Matched" && <span className="text-green-600">Valid update target.</span>}
-                                {row.status === "No change" && <span>Identical quantities. No DB update.</span>}
+                                {row.status === "Matched" && (
+                                  <span className="text-green-600 flex items-center gap-1 font-bold">
+                                    <CheckCircle2 className="h-3 w-3 shrink-0" /> Will update stock & MRP.
+                                  </span>
+                                )}
+                                {row.status === "No change" && (
+                                  <span className="text-gray-400">No updates required.</span>
+                                )}
                               </td>
                             </tr>
                           );
