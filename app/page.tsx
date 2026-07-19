@@ -848,29 +848,18 @@ export default function SalesBrochure() {
                     </div>
 
                     {/* Title */}
-                    <h2 className="text-lg font-extrabold text-slate-900 leading-snug">
+                    <h2 className="text-xl font-extrabold text-slate-900 leading-snug">
                       {selectedProduct.description}
                     </h2>
 
-                    {/* Specifications / Info List */}
-                    <div className="space-y-2 text-xs text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-200/60">
-                      <div className="flex justify-between">
-                        <span className="font-semibold text-slate-450">Available Stock:</span>
-                        <span className="font-bold text-slate-800 num-mono">{selectedProduct.stockCount} pcs</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-semibold text-slate-450">Wholesale Est:</span>
-                        <span className="font-bold text-indigo-600 num-mono">{formatCurrency(selectedProduct.wholesaleRate)}</span>
-                      </div>
-                    </div>
-
-                    {/* Pricing Tag */}
-                    <div className="bg-slate-900 text-white p-3.5 rounded-lg flex items-center justify-between shadow-sm">
+                    {/* Pricing & Stock Details Tag */}
+                    <div className="bg-slate-50 border border-slate-200 p-4 rounded-lg flex items-center justify-between shadow-xs">
                       <div>
-                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Suggested MRP</span>
-                        <span className="num-mono text-xl font-black">{formatCurrency(selectedProduct.mrp)}</span>
+                        <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider block">Maximum Retail Price (MRP)</span>
+                        <span className="num-mono text-2xl font-black text-slate-900 mt-1 block">
+                          {formatCurrency(selectedProduct.mrp)}
+                        </span>
                       </div>
-                      <span className="text-[10px] text-slate-450 font-bold uppercase border border-slate-700 px-2 py-0.5 rounded">Retail</span>
                     </div>
 
                   </div>
