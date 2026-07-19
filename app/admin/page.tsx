@@ -672,13 +672,12 @@ export default function AdminCommandCenter() {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4 font-sans text-sm">
         <div className="w-full max-w-sm bg-white border border-gray-300 shadow-2xl p-6 rounded-none space-y-5 animate-in zoom-in-95 duration-200">
-          <div className="flex flex-col items-center text-center space-y-2 border-b border-gray-200 pb-4">
-            <div className="bg-gray-900 p-2 border border-gray-800 shrink-0 flex items-center justify-center h-12 w-12 shadow-md">
-              <Image src="/logo.png" alt="Wetta Logo" width={32} height={32} className="h-8 w-auto object-contain invert" />
+          <div className="flex flex-col items-center text-center space-y-3 border-b border-gray-200 pb-4">
+            <div className="h-12 w-auto flex items-center justify-center">
+              <Image src="/logo.png" alt="Wetta Logo" width={160} height={40} className="h-10 w-auto object-contain" priority />
             </div>
             <div>
-              <h2 className="font-extrabold text-base tracking-wider uppercase text-gray-900 leading-tight">Wetta ERP Console</h2>
-              <p className="text-[10px] text-indigo-600 font-bold uppercase tracking-widest leading-none mt-1">Kerala Operations Log-in</p>
+              <p className="text-[10px] text-indigo-600 font-bold uppercase tracking-widest leading-none">Kerala Operations Console</p>
             </div>
           </div>
 
@@ -745,14 +744,11 @@ export default function AdminCommandCenter() {
           
           {/* Logo & Portal Nav */}
           <div className="flex items-center justify-between pb-4 border-b border-gray-800">
-            <div className="flex items-center gap-2">
-              <div className="bg-white p-1 rounded-none flex items-center justify-center h-8 w-8">
-                <Image src="/logo.png" alt="Wetta Logo" width={24} height={24} className="h-6 w-auto object-contain" />
+            <div className="flex flex-col items-start gap-1">
+              <div className="h-8 w-auto flex items-center justify-start">
+                <Image src="/logo.png" alt="Wetta Logo" width={120} height={32} className="h-8 w-auto object-contain invert" priority />
               </div>
-              <div>
-                <h1 className="font-extrabold text-sm tracking-wider uppercase">Wetta ERP</h1>
-                <p className="text-[9px] text-indigo-400 font-bold uppercase tracking-widest leading-none">Kerala Operations</p>
-              </div>
+              <p className="text-[9px] text-indigo-400 font-bold uppercase tracking-widest leading-none mt-1.5 pl-0.5">Kerala Operations</p>
             </div>
             
             <Link

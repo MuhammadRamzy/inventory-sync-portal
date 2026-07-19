@@ -281,17 +281,9 @@ export default function SalesBrochure() {
       <aside className="w-full md:w-80 md:h-screen md:sticky md:top-0 bg-white border-b md:border-b-0 md:border-r border-slate-200 flex flex-col justify-between p-5 md:p-6 shrink-0 shadow-[2px_0_8px_rgba(15,23,42,0.02)] z-30 overflow-y-auto">
         <div className="space-y-6">
           {/* Logo & Branding */}
-          <div className="flex items-center gap-3">
-            <div className="bg-white p-1 rounded-sm shrink-0 flex items-center justify-center h-10 w-10 border border-slate-200 shadow-inner">
-              <Image src="/logo.png" alt="Wetta Logo" width={32} height={32} className="h-8 w-auto object-contain" />
-            </div>
-            <div>
-              <h1 className="text-xl font-extrabold tracking-tight text-slate-900 leading-none">
-                WETTA
-              </h1>
-              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-1">
-                B2B Distribution
-              </p>
+          <div className="flex items-center justify-start py-1">
+            <div className="h-11 w-auto flex items-center justify-start">
+              <Image src="/logo.png" alt="Wetta Logo" width={180} height={44} className="h-11 w-auto object-contain" priority />
             </div>
           </div>
 
