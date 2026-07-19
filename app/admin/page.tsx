@@ -19,7 +19,8 @@ import {
   LogOut,
   Settings,
   Layers,
-  Plus
+  Plus,
+  Shield
 } from "lucide-react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
@@ -60,6 +61,25 @@ interface CsvRowPreview {
   errorDetails?: string;
 }
 
+// Secure SHA-256 Hashing helper
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await window.crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Credentials retrieval helper
+function getAdminCredentials() {
+  if (typeof window === "undefined") {
+    return { username: "admin", passwordHash: "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918" };
+  }
+  const username = localStorage.getItem("wetta_admin_username") || "admin";
+  const passwordHash = localStorage.getItem("wetta_admin_password_hash") || "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918";
+  return { username, passwordHash };
+}
+
 export default function AdminCommandCenter() {
   const [activeTab, setActiveTab] = useState<"master" | "manual" | "sync" | "settings">("master");
   const [products, setProducts] = useState<Product[]>([]);
@@ -77,6 +97,10 @@ export default function AdminCommandCenter() {
 
   // --- Settings States ---
   const [whatsappNumber, setWhatsappNumber] = useState("");
+  const [currPassword, setCurrPassword] = useState("");
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
 
   // --- Manual Product Entry States ---
   const [manualForm, setManualForm] = useState({
@@ -124,15 +148,25 @@ export default function AdminCommandCenter() {
     const settings = getAppSettings();
     setWhatsappNumber(settings.whatsappNumber);
 
+    // Prefill settings username
+    const creds = getAdminCredentials();
+    setNewUsername(creds.username);
+
     window.addEventListener("wetta_db_update", loadProducts);
     return () => {
       window.removeEventListener("wetta_db_update", loadProducts);
     };
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loginUsername.trim().toLowerCase() === "admin" && loginPassword === "admin") {
+    const creds = getAdminCredentials();
+    const inputHash = await hashPassword(loginPassword);
+
+    if (
+      loginUsername.trim().toLowerCase() === creds.username.toLowerCase() &&
+      inputHash === creds.passwordHash
+    ) {
       localStorage.setItem("wetta_admin_auth", "true");
       setIsAuthenticated(true);
       setLoginError("");
@@ -148,6 +182,41 @@ export default function AdminCommandCenter() {
     localStorage.removeItem("wetta_admin_auth");
     setIsAuthenticated(false);
     showToast("success", "Session cleared. Operator logged out.");
+  };
+
+  const handleUpdateCredentials = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUsername.trim()) {
+      showToast("error", "Username cannot be empty.");
+      return;
+    }
+    if (!newPassword || newPassword !== confirmNewPassword) {
+      showToast("error", "New passwords do not match.");
+      return;
+    }
+    if (newPassword.length < 4) {
+      showToast("error", "Password must be at least 4 characters long.");
+      return;
+    }
+
+    const creds = getAdminCredentials();
+    const currHash = await hashPassword(currPassword);
+    if (currHash !== creds.passwordHash) {
+      showToast("error", "Current password verification failed.");
+      return;
+    }
+
+    // Save updated credentials
+    const newHash = await hashPassword(newPassword);
+    localStorage.setItem("wetta_admin_username", newUsername.trim());
+    localStorage.setItem("wetta_admin_password_hash", newHash);
+
+    // Reset inputs
+    setCurrPassword("");
+    setNewPassword("");
+    setConfirmNewPassword("");
+
+    showToast("success", "Security credentials updated successfully.");
   };
 
   const handleSaveSettings = (e: React.FormEvent) => {
@@ -1301,38 +1370,126 @@ export default function AdminCommandCenter() {
           {/* TAB 4: SETTINGS PANEL                                          */}
           {/* ============================================================== */}
           {activeTab === "settings" && (
-            <div className="bg-white border border-gray-300 shadow-sm max-w-md mx-auto rounded-none animate-fade-in">
-              <div className="bg-gray-50 border-b border-gray-300 px-4 py-2.5">
-                <span className="font-bold text-xs uppercase tracking-wider text-gray-700 flex items-center gap-1.5">
-                  <Settings className="h-4 w-4 text-indigo-600" /> WhatsApp Contact Configuration
-                </span>
+            <div className="max-w-xl mx-auto space-y-6">
+              
+              {/* WhatsApp Config Card */}
+              <div className="bg-white border border-gray-300 shadow-sm rounded-none animate-fade-in">
+                <div className="bg-gray-50 border-b border-gray-300 px-4 py-2.5">
+                  <span className="font-bold text-xs uppercase tracking-wider text-gray-700 flex items-center gap-1.5">
+                    <Settings className="h-4 w-4 text-indigo-600" /> WhatsApp Contact Configuration
+                  </span>
+                </div>
+                <form onSubmit={handleSaveSettings} className="p-4 md:p-6 space-y-4 font-sans text-sm">
+                  <div className="space-y-1">
+                    <label htmlFor="whatsappNumber" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      WhatsApp Contact Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="whatsappNumber"
+                      value={whatsappNumber}
+                      onChange={(e) => setWhatsappNumber(e.target.value)}
+                      placeholder="E.G., 919388833888"
+                      className="w-full erp-input num-mono"
+                    />
+                    <p className="text-[10px] text-gray-400">
+                      Enter the WhatsApp phone number (with country code, no + or spaces) where quotation requests from the sales cart will be directed.
+                    </p>
+                  </div>
+                  <div className="pt-4 flex justify-end border-t border-gray-200">
+                    <button
+                      type="submit"
+                      className="erp-btn erp-btn-primary bg-indigo-600 border-indigo-600 hover:bg-indigo-700 text-white font-bold"
+                    >
+                      Save Settings
+                    </button>
+                  </div>
+                </form>
               </div>
-              <form onSubmit={handleSaveSettings} className="p-4 md:p-6 space-y-4 font-sans text-sm">
-                <div className="space-y-1">
-                  <label htmlFor="whatsappNumber" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
-                    WhatsApp Contact Number <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    id="whatsappNumber"
-                    value={whatsappNumber}
-                    onChange={(e) => setWhatsappNumber(e.target.value)}
-                    placeholder="E.G., 919388833888"
-                    className="w-full erp-input num-mono"
-                  />
-                  <p className="text-[10px] text-gray-400">
-                    Enter the WhatsApp phone number (with country code, no + or spaces) where quotation requests from the sales cart will be directed.
-                  </p>
+
+              {/* Security Credentials Card */}
+              <div className="bg-white border border-gray-300 shadow-sm rounded-none animate-fade-in">
+                <div className="bg-gray-50 border-b border-gray-300 px-4 py-2.5">
+                  <span className="font-bold text-xs uppercase tracking-wider text-gray-700 flex items-center gap-1.5">
+                    <Shield className="h-4 w-4 text-indigo-600" /> Administrative Security Settings
+                  </span>
                 </div>
-                <div className="pt-4 flex justify-end border-t border-gray-200">
-                  <button
-                    type="submit"
-                    className="erp-btn erp-btn-primary bg-indigo-600 border-indigo-600 hover:bg-indigo-700 text-white font-bold"
-                  >
-                    Save Settings
-                  </button>
-                </div>
-              </form>
+                <form onSubmit={handleUpdateCredentials} className="p-4 md:p-6 space-y-4 font-sans text-sm">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label htmlFor="newUsername" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                        New Operator ID / Username <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="newUsername"
+                        value={newUsername}
+                        onChange={(e) => setNewUsername(e.target.value)}
+                        placeholder="E.G., admin"
+                        className="w-full erp-input"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label htmlFor="currPassword" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                        Current Password (Verify) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="password"
+                        id="currPassword"
+                        value={currPassword}
+                        onChange={(e) => setCurrPassword(e.target.value)}
+                        placeholder="Verify identity..."
+                        className="w-full erp-input"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                    <div className="space-y-1">
+                      <label htmlFor="newPassword" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                        New Console Password <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="password"
+                        id="newPassword"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Min 4 characters..."
+                        className="w-full erp-input"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label htmlFor="confirmNewPassword" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                        Confirm New Password <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="password"
+                        id="confirmNewPassword"
+                        value={confirmNewPassword}
+                        onChange={(e) => setConfirmNewPassword(e.target.value)}
+                        placeholder="Re-enter password..."
+                        className="w-full erp-input"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-4 flex justify-end border-t border-gray-200">
+                    <button
+                      type="submit"
+                      className="erp-btn erp-btn-primary bg-indigo-600 border-indigo-600 hover:bg-indigo-700 text-white font-bold"
+                    >
+                      Update Credentials
+                    </button>
+                  </div>
+                </form>
+              </div>
+
             </div>
           )}
 

@@ -33,6 +33,7 @@ export default function SalesBrochure() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   // Cart Local States
   const [cart, setCart] = useState<{ product: Product; quantity: number }[]>([]);
@@ -393,7 +394,8 @@ export default function SalesBrochure() {
               return (
                 <div
                   key={product.itemCode}
-                  className="bg-white border border-slate-200 hover:border-slate-400 rounded-lg p-3.5 flex gap-4 transition-all duration-300 shadow-[0_1px_3px_rgba(15,23,42,0.02)] group hover:shadow-[0_4px_12px_rgba(15,23,42,0.05)]"
+                  onClick={() => setSelectedProduct(product)}
+                  className="bg-white border border-slate-200 hover:border-slate-400 rounded-lg p-3.5 flex gap-4 transition-all duration-300 shadow-[0_1px_3px_rgba(15,23,42,0.02)] group hover:shadow-[0_4px_12px_rgba(15,23,42,0.05)] cursor-pointer"
                 >
                   {/* Left Aspect-Square Thumbnail */}
                   <div className="w-20 h-20 sm:w-24 sm:h-24 shrink-0 bg-slate-50 border border-slate-200/80 rounded-md flex items-center justify-center relative overflow-hidden bg-radial bg-cover">
@@ -442,9 +444,15 @@ export default function SalesBrochure() {
 
                       {/* Add to Cart Actions */}
                       {cartItem ? (
-                        <div className="flex items-center border border-slate-300 bg-white rounded-md overflow-hidden shadow-xs">
+                        <div 
+                          onClick={(e) => e.stopPropagation()} 
+                          className="flex items-center border border-slate-300 bg-white rounded-md overflow-hidden shadow-xs"
+                        >
                           <button
-                            onClick={() => handleUpdateCartQuantity(product.itemCode, cartItem.quantity - 1)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUpdateCartQuantity(product.itemCode, cartItem.quantity - 1);
+                            }}
                             className="px-2.5 py-1.5 hover:bg-slate-50 text-slate-550 hover:text-slate-900 transition-colors"
                           >
                             <Minus className="h-3 w-3" />
@@ -453,7 +461,10 @@ export default function SalesBrochure() {
                             {cartItem.quantity}
                           </span>
                           <button
-                            onClick={() => handleUpdateCartQuantity(product.itemCode, cartItem.quantity + 1)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUpdateCartQuantity(product.itemCode, cartItem.quantity + 1);
+                            }}
                             className="px-2.5 py-1.5 hover:bg-slate-50 text-slate-550 hover:text-slate-900 transition-colors"
                           >
                             <Plus className="h-3 w-3" />
@@ -461,7 +472,10 @@ export default function SalesBrochure() {
                         </div>
                       ) : (
                         <button
-                          onClick={() => handleAddToCart(product)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAddToCart(product);
+                          }}
                           className="py-1.5 px-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold transition-colors text-xs flex items-center gap-1.5 rounded-md shadow-xs shrink-0"
                         >
                           <ShoppingCart className="h-3.5 w-3.5" /> Add to Cart
@@ -783,6 +797,126 @@ export default function SalesBrochure() {
           </div>
         </div>
       )}
+
+      {/* Product Details Highlight Modal */}
+      {selectedProduct && (() => {
+        const cartItem = cart.find((item) => item.product.itemCode === selectedProduct.itemCode);
+        return (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => setSelectedProduct(null)}>
+            <div 
+              className="bg-white border border-slate-350 max-w-lg w-full rounded-xl overflow-hidden shadow-2xl relative animate-in zoom-in-95 duration-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close Button */}
+              <button 
+                onClick={() => setSelectedProduct(null)}
+                className="absolute right-4 top-4 bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 p-2 rounded-full transition-colors z-10"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+              {/* Main Content Grid */}
+              <div className="flex flex-col sm:flex-row">
+                
+                {/* Left Column: Media / Illustration */}
+                <div className="w-full sm:w-2/5 bg-slate-50 border-b sm:border-b-0 sm:border-r border-slate-200 flex items-center justify-center p-6 relative min-h-[160px] sm:min-h-[220px]">
+                  {selectedProduct.image ? (
+                    <img 
+                      src={selectedProduct.image} 
+                      alt={selectedProduct.description} 
+                      className="w-full h-full object-contain max-h-[180px]"
+                    />
+                  ) : (
+                    <div className="scale-125 select-none">
+                      {renderCategoryIllustration(selectedProduct.category)}
+                    </div>
+                  )}
+                  <span className="absolute bottom-3 left-3 num-mono font-bold text-xs bg-slate-900 text-white px-2 py-0.5 rounded shadow-sm">
+                    {selectedProduct.itemCode}
+                  </span>
+                </div>
+
+                {/* Right Column: Detailed Meta info */}
+                <div className="w-full sm:w-3/5 p-6 flex flex-col justify-between">
+                  <div className="space-y-4">
+                    {/* Badge Row */}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-extrabold text-slate-500 bg-slate-100 px-2 py-0.5 border border-slate-200 rounded uppercase tracking-wider">
+                        {selectedProduct.category}
+                      </span>
+                      <StockBadge count={selectedProduct.stockCount} />
+                    </div>
+
+                    {/* Title */}
+                    <h2 className="text-lg font-extrabold text-slate-900 leading-snug">
+                      {selectedProduct.description}
+                    </h2>
+
+                    {/* Specifications / Info List */}
+                    <div className="space-y-2 text-xs text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-200/60">
+                      <div className="flex justify-between">
+                        <span className="font-semibold text-slate-450">Available Stock:</span>
+                        <span className="font-bold text-slate-800 num-mono">{selectedProduct.stockCount} pcs</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-semibold text-slate-450">Wholesale Est:</span>
+                        <span className="font-bold text-indigo-600 num-mono">{formatCurrency(selectedProduct.wholesaleRate)}</span>
+                      </div>
+                    </div>
+
+                    {/* Pricing Tag */}
+                    <div className="bg-slate-900 text-white p-3.5 rounded-lg flex items-center justify-between shadow-sm">
+                      <div>
+                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Suggested MRP</span>
+                        <span className="num-mono text-xl font-black">{formatCurrency(selectedProduct.mrp)}</span>
+                      </div>
+                      <span className="text-[10px] text-slate-450 font-bold uppercase border border-slate-700 px-2 py-0.5 rounded">Retail</span>
+                    </div>
+
+                  </div>
+
+                  {/* Footer Actions */}
+                  <div className="border-t border-slate-150 pt-4 mt-6 flex items-center justify-between gap-4">
+                    <div className="text-slate-500 text-[10px] font-bold uppercase">
+                      Quotation Qty
+                    </div>
+
+                    {cartItem ? (
+                      <div className="flex items-center border border-slate-300 bg-white rounded-md overflow-hidden shadow-sm">
+                        <button
+                          onClick={() => handleUpdateCartQuantity(selectedProduct.itemCode, cartItem.quantity - 1)}
+                          className="px-3 py-2 hover:bg-slate-50 text-slate-550 hover:text-slate-900 transition-colors"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <span className="px-3 text-sm font-bold num-mono text-slate-900">
+                          {cartItem.quantity}
+                        </span>
+                        <button
+                          onClick={() => handleUpdateCartQuantity(selectedProduct.itemCode, cartItem.quantity + 1)}
+                          className="px-3 py-2 hover:bg-slate-50 text-slate-550 hover:text-slate-900 transition-colors"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleAddToCart(selectedProduct)}
+                        className="py-2 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold transition-colors text-xs flex items-center gap-2 rounded-md shadow-sm shrink-0"
+                      >
+                        <ShoppingCart className="h-4 w-4" /> Add to Quote
+                      </button>
+                    )}
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );
