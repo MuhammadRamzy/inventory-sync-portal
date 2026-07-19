@@ -324,7 +324,7 @@ export function resetDatabase(): void {
 
 const SETTINGS_KEY = "wetta_settings";
 const DEFAULT_SETTINGS: AppSettings = {
-  whatsappNumber: "9388833888",
+  whatsappNumber: "9562147862",
 };
 
 export function getAppSettings(): AppSettings {

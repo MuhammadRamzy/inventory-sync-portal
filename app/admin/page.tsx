@@ -53,7 +53,10 @@ interface CsvRowPreview {
   currentStock: number;
   newStock: number;
   difference: number;
+  currentMrp: number;
+  newMrp: number;
   status: "Matched" | "Unrecognized" | "No change" | "Malformed";
+  category?: string;
   errorDetails?: string;
 }
 
@@ -92,6 +95,10 @@ export default function AdminCommandCenter() {
   const [csvFileName, setCsvFileName] = useState<string | null>(null);
   const [parsedRows, setParsedRows] = useState<CsvRowPreview[]>([]);
   const [showSyncConfirm, setShowSyncConfirm] = useState(false);
+  const [selectedRows, setSelectedRows] = useState<number[]>([]); // indexes of rows in parsedRows
+  const [bulkCategory, setBulkCategory] = useState("Health Faucets");
+  const [isCreatingBulkCategory, setIsCreatingBulkCategory] = useState(false);
+  const [newBulkCategoryName, setNewBulkCategoryName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- Auth States ---
@@ -231,6 +238,10 @@ export default function AdminCommandCenter() {
 
   // Filter & Sort Master list
   const categories = Array.from(new Set(products.map((p) => p.category)));
+  const dbCategories = Array.from(new Set(products.map((p) => p.category)));
+  const parsedCategories = Array.from(new Set(parsedRows.map((p) => p.category).filter(Boolean))) as string[];
+  const defaultCategories = ["Health Faucets", "Showers", "Accessories", "Table Top"];
+  const allCategories = Array.from(new Set([...defaultCategories, ...dbCategories, ...parsedCategories])).filter(Boolean);
 
   const filteredMasterProducts = products
     .filter((p) => {
@@ -338,6 +349,33 @@ export default function AdminCommandCenter() {
   };
 
   // --- Bulk Tally Sync Handlers ---
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedRows(parsedRows.map((_, idx) => idx));
+    } else {
+      setSelectedRows([]);
+    }
+  };
+
+  const handleSelectRow = (idx: number) => {
+    setSelectedRows((prev) =>
+      prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx]
+    );
+  };
+
+  const handleBulkCategoryApply = (categoryName: string) => {
+    if (selectedRows.length === 0) {
+      showToast("error", "No rows selected.");
+      return;
+    }
+    setParsedRows((prev) =>
+      prev.map((row, idx) =>
+        selectedRows.includes(idx) ? { ...row, category: categoryName } : row
+      )
+    );
+    showToast("success", `Assigned ${selectedRows.length} items to "${categoryName}".`);
+  };
+
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -366,6 +404,9 @@ export default function AdminCommandCenter() {
 
   const processSyncFile = (file: File) => {
     setCsvFileName(file.name);
+    setSelectedRows([]);
+    setIsCreatingBulkCategory(false);
+    setNewBulkCategoryName("");
     const isExcel = file.name.endsWith(".xls") || file.name.endsWith(".xlsx");
 
     if (isExcel) {
@@ -441,6 +482,8 @@ export default function AdminCommandCenter() {
               status = "No change";
             }
             
+            const rowCategory = matchedProd ? matchedProd.category : (foundCategory || "Table Top");
+
             previewList.push({
               itemCode,
               description,
@@ -450,7 +493,7 @@ export default function AdminCommandCenter() {
               currentMrp,
               newMrp: isNaN(rate) ? 0 : rate,
               status,
-              category
+              category: rowCategory
             });
           }
           
@@ -1388,13 +1431,104 @@ export default function AdminCommandCenter() {
                     </span>
                   </div>
 
+                  {/* Bulk Category Assignment Panel */}
+                  <div className="bg-gray-50 border border-gray-250 p-4 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wide">
+                        Bulk Category Assignment
+                      </h4>
+                      <p className="text-[10px] text-gray-550">
+                        Select multiple products from the list below and assign them to a category at once.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs text-gray-600 font-bold num-mono bg-white border border-gray-200 px-2 py-1">
+                        {selectedRows.length} selected
+                      </span>
+
+                      {isCreatingBulkCategory ? (
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="text"
+                            value={newBulkCategoryName}
+                            onChange={(e) => setNewBulkCategoryName(e.target.value)}
+                            placeholder="New category name..."
+                            className="text-xs border border-gray-300 px-2.5 py-1.5 rounded-none outline-none focus:border-indigo-600 bg-white"
+                          />
+                          <button
+                            onClick={() => {
+                              const trimmed = newBulkCategoryName.trim();
+                              if (!trimmed) {
+                                showToast("error", "Category name cannot be empty.");
+                                return;
+                              }
+                              handleBulkCategoryApply(trimmed);
+                              setIsCreatingBulkCategory(false);
+                              setNewBulkCategoryName("");
+                            }}
+                            className="erp-btn erp-btn-primary py-1.5 px-3 text-xs bg-indigo-600 border-indigo-600 hover:bg-indigo-700 text-white font-bold"
+                          >
+                            Create & Apply
+                          </button>
+                          <button
+                            onClick={() => setIsCreatingBulkCategory(false)}
+                            className="text-xs font-semibold text-gray-500 hover:text-gray-800 px-1"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <select
+                            value={bulkCategory}
+                            onChange={(e) => {
+                              if (e.target.value === "__NEW__") {
+                                setIsCreatingBulkCategory(true);
+                              } else {
+                                setBulkCategory(e.target.value);
+                              }
+                            }}
+                            className="text-xs bg-white border border-gray-300 rounded-none px-2.5 py-1.5 text-gray-800 outline-none focus:border-indigo-600"
+                          >
+                            {allCategories.map((cat) => (
+                              <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                            <option value="__NEW__" className="text-indigo-600 font-bold">+ Create New Category...</option>
+                          </select>
+                          
+                          <button
+                            onClick={() => handleBulkCategoryApply(bulkCategory)}
+                            disabled={selectedRows.length === 0}
+                            className={`erp-btn py-1.5 px-3 text-xs font-bold uppercase transition-all ${
+                              selectedRows.length === 0
+                                ? "bg-gray-200 border-gray-200 text-gray-400 cursor-not-allowed"
+                                : "bg-indigo-600 border-indigo-600 hover:bg-indigo-700 text-white"
+                            }`}
+                          >
+                            Apply to Selected
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Preview Table */}
                   <div className="overflow-x-auto border border-gray-200">
                     <table className="erp-table">
                       <thead>
                         <tr>
+                          <th className="w-10 text-center">
+                            <input
+                              type="checkbox"
+                              checked={parsedRows.length > 0 && selectedRows.length === parsedRows.length}
+                              onChange={(e) => handleSelectAll(e.target.checked)}
+                              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 cursor-pointer"
+                            />
+                          </th>
                           <th className="w-24">Item Code</th>
                           <th>Description</th>
+                          <th className="w-32">Category</th>
                           <th className="w-20 text-right font-mono">Old Stock</th>
                           <th className="w-20 text-right font-mono">New Stock</th>
                           <th className="w-16 text-center font-mono">Diff</th>
@@ -1406,6 +1540,7 @@ export default function AdminCommandCenter() {
                       </thead>
                       <tbody>
                         {parsedRows.map((row, idx) => {
+                          const isSelected = selectedRows.includes(idx);
                           let statusColor = "";
                           let diffColor = "text-gray-500";
                           let diffText = "0";
@@ -1434,9 +1569,38 @@ export default function AdminCommandCenter() {
                           }
 
                           return (
-                            <tr key={idx} className={row.status === "Malformed" ? "bg-red-50/20" : ""}>
+                            <tr key={idx} className={`${row.status === "Malformed" ? "bg-red-50/20" : ""} ${isSelected ? "bg-indigo-50/30" : ""}`}>
+                              <td className="text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => handleSelectRow(idx)}
+                                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 cursor-pointer"
+                                />
+                              </td>
                               <td className="num-mono font-bold">{row.itemCode}</td>
                               <td className="font-semibold text-gray-800 truncate max-w-xs">{row.description}</td>
+                              
+                              {/* Inline Category Select Dropdown */}
+                              <td>
+                                <select
+                                  value={row.category || "Table Top"}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setParsedRows((prev) =>
+                                      prev.map((r, rIdx) =>
+                                        rIdx === idx ? { ...r, category: val } : r
+                                      )
+                                    );
+                                  }}
+                                  className="text-xs bg-white border border-gray-300 rounded px-1.5 py-1 text-gray-800 outline-none focus:border-indigo-650"
+                                >
+                                  {allCategories.map((cat) => (
+                                    <option key={cat} value={cat}>{cat}</option>
+                                  ))}
+                                </select>
+                              </td>
+
                               <td className="num-mono text-right text-gray-500">{row.currentStock}</td>
                               <td className="num-mono text-right font-bold text-gray-800">{row.newStock}</td>
                               <td className={`num-mono text-center ${diffColor}`}>{diffText}</td>
@@ -1447,14 +1611,14 @@ export default function AdminCommandCenter() {
                                   {row.status}
                                 </span>
                               </td>
-                              <td className="text-xs text-gray-500 font-medium">
+                              <td className="text-xs text-gray-550 font-medium">
                                 {row.status === "Malformed" && (
                                   <span className="text-red-600 flex items-center gap-1 font-bold">
                                     <AlertCircle className="h-3 w-3 shrink-0" /> {row.errorDetails}
                                   </span>
                                 )}
                                 {row.status === "Unrecognized" && (
-                                  <span className="text-blue-600 flex items-center gap-1 font-bold">
+                                  <span className="text-indigo-650 flex items-center gap-1 font-bold">
                                     <CheckCircle2 className="h-3 w-3 shrink-0" /> Will add as new product in &quot;{row.category}&quot;.
                                   </span>
                                 )}

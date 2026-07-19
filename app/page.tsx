@@ -17,7 +17,9 @@ import {
   ShoppingBag,
   User,
   Phone,
-  FileText
+  FileText,
+  Copy,
+  Check
 } from "lucide-react";
 import { Product } from "@/lib/types";
 import { getStoredProducts, getAppSettings } from "@/lib/db";
@@ -38,6 +40,7 @@ export default function SalesBrochure() {
   const [clientPhone, setClientPhone] = useState("");
   const [clientNote, setClientNote] = useState("");
   const [adminWhatsapp, setAdminWhatsapp] = useState("");
+  const [copied, setCopied] = useState(false);
 
   // Swipe to Send States (Mobile only)
   const [swipeOffset, setSwipeOffset] = useState(0);
@@ -111,23 +114,7 @@ export default function SalesBrochure() {
     setCart((prev) => prev.filter((item) => item.product.itemCode !== itemCode));
   };
 
-  const handleSendQuotation = (target: "admin" | "client" | "custom") => {
-    let phone = "";
-    if (target === "admin") {
-      phone = adminWhatsapp || "919388833888";
-    } else if (target === "client") {
-      phone = clientPhone.replace(/[^0-9]/g, "");
-    } else if (target === "custom") {
-      const customNum = prompt("Enter custom WhatsApp number (with country code, e.g. 919388833888):");
-      if (!customNum) return;
-      phone = customNum.replace(/[^0-9]/g, "");
-    }
-
-    if (!phone) {
-      alert("Please configure or enter a valid WhatsApp phone number.");
-      return;
-    }
-
+  const generateQuotationText = () => {
     const dateStr = new Date().toLocaleDateString("en-IN", {
       day: "2-digit",
       month: "short",
@@ -157,7 +144,35 @@ export default function SalesBrochure() {
     msg += `*Total Amount:* ${formatCurrency(totalVal)}\n`;
     msg += `----------------------------------\n`;
     msg += `Generated via Wetta Digital Brochure.`;
+    return msg;
+  };
 
+  const handleCopyQuoteToClipboard = () => {
+    const text = generateQuotationText();
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const handleSendQuotation = (target: "admin" | "client" | "custom") => {
+    let phone = "";
+    if (target === "admin") {
+      phone = adminWhatsapp || "919388833888";
+    } else if (target === "client") {
+      phone = clientPhone.replace(/[^0-9]/g, "");
+    } else if (target === "custom") {
+      const customNum = prompt("Enter custom WhatsApp number (with country code, e.g. 919388833888):");
+      if (!customNum) return;
+      phone = customNum.replace(/[^0-9]/g, "");
+    }
+
+    if (!phone) {
+      alert("Please configure or enter a valid WhatsApp phone number.");
+      return;
+    }
+
+    const msg = generateQuotationText();
     const encodedMsg = encodeURIComponent(msg);
     const waUrl = `https://api.whatsapp.com/send?phone=${phone}&text=${encodedMsg}`;
     window.open(waUrl, "_blank");
@@ -364,7 +379,7 @@ export default function SalesBrochure() {
           </button>
         </div>
 
-        {/* High-density horizontal product listings (2-column in laptop/desktop view for space efficiency) */}
+        {/* High-density horizontal product listings (2-column in laptop/desktop view) */}
         {filteredProducts.length === 0 ? (
           <EmptyState
             title="No Products Found"
@@ -521,6 +536,24 @@ export default function SalesBrochure() {
                 </div>
               ) : (
                 <div className="space-y-6">
+                  {/* Cart Header with Clear All Button */}
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      Selected Items ({cart.length})
+                    </span>
+                    <button
+                      onClick={() => {
+                        if (confirm("Are you sure you want to clear your cart?")) {
+                          setCart([]);
+                        }
+                      }}
+                      className="text-[10px] font-bold text-red-500 hover:text-red-700 uppercase tracking-wider transition-colors flex items-center gap-1"
+                    >
+                      <Trash2 className="h-3 w-3" /> Clear All
+                    </button>
+                  </div>
+
+                  {/* Cart Items */}
                   <div className="space-y-3.5">
                     {cart.map((item) => (
                       <div key={item.product.itemCode} className="border border-slate-200 p-3 bg-slate-50/75 rounded-lg flex items-center gap-3.5 relative hover:border-slate-350 transition-colors">
@@ -542,9 +575,29 @@ export default function SalesBrochure() {
                             <span className="text-[8px] font-bold text-slate-500 bg-slate-100 px-2 py-0.2 rounded-sm uppercase tracking-wide truncate border border-slate-200">{item.product.category}</span>
                           </div>
                           <h4 className="text-xs font-bold text-slate-800 truncate mt-1">{item.product.description}</h4>
-                          <div className="flex justify-between items-center mt-2">
-                            <span className="num-mono text-[10px] text-slate-400">{formatCurrency(item.product.mrp)} × {item.quantity}</span>
-                            <span className="num-mono text-xs font-extrabold text-slate-800">{formatCurrency(item.product.mrp * item.quantity)}</span>
+                          
+                          {/* Quantity Controls inside Cart Drawer */}
+                          <div className="flex justify-between items-center mt-3">
+                            <div className="flex items-center border border-slate-300 bg-white rounded overflow-hidden">
+                              <button
+                                onClick={() => handleUpdateCartQuantity(item.product.itemCode, item.quantity - 1)}
+                                className="px-2 py-1 hover:bg-slate-50 text-slate-500 hover:text-slate-900 transition-colors"
+                              >
+                                <Minus className="h-2.5 w-2.5" />
+                              </button>
+                              <span className="px-2 text-xs font-bold num-mono text-slate-850">
+                                {item.quantity}
+                              </span>
+                              <button
+                                onClick={() => handleUpdateCartQuantity(item.product.itemCode, item.quantity + 1)}
+                                className="px-2 py-1 hover:bg-slate-50 text-slate-500 hover:text-slate-900 transition-colors"
+                              >
+                                <Plus className="h-2.5 w-2.5" />
+                              </button>
+                            </div>
+                            <span className="num-mono text-xs font-bold text-slate-905">
+                              {formatCurrency(item.product.mrp * item.quantity)}
+                            </span>
                           </div>
                         </div>
 
@@ -688,13 +741,31 @@ export default function SalesBrochure() {
                     <Send className="h-4 w-4" /> Send to Client WhatsApp
                   </button>
                 )}
-                
-                <button
-                  onClick={() => handleSendQuotation("custom")}
-                  className="w-full py-3 bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200 font-bold transition-colors text-xs uppercase tracking-wider flex items-center justify-center gap-2 rounded-md"
-                >
-                  <Share2 className="h-4 w-4" /> Send to Custom Number
-                </button>
+
+                {/* Copy to Clipboard and Share Actions */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleCopyQuoteToClipboard}
+                    className="flex-1 py-2.5 bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200 font-bold transition-all text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 rounded-md"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-emerald-600 animate-in zoom-in-50" /> Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5" /> Copy Text
+                      </>
+                    )}
+                  </button>
+                  
+                  <button
+                    onClick={() => handleSendQuotation("custom")}
+                    className="flex-1 py-2.5 bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200 font-bold transition-all text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 rounded-md"
+                  >
+                    <Share2 className="h-3.5 w-3.5" /> Share Custom
+                  </button>
+                </div>
               </div>
             )}
           </div>
