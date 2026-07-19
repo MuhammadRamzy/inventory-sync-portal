@@ -144,3 +144,22 @@ body {
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+
+/* Swipe to Send shimmer & arrow slide keyframes */
+@keyframes swipeArrowFlow {
+  0% {
+    opacity: 0.1;
+    transform: translateX(-4px);
+  }
+  50% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0.1;
+    transform: translateX(8px);
+  }
+}
+
+.animate-swipe-flow {
+  animation: swipeArrowFlow 1.4s infinite ease-in-out;
+}

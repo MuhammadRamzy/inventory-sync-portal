@@ -19,7 +19,8 @@ import {
   Phone,
   FileText,
   Copy,
-  Check
+  Check,
+  ChevronRight
 } from "lucide-react";
 import { Product } from "@/lib/types";
 import { getStoredProducts, getAppSettings } from "@/lib/db";
@@ -121,29 +122,37 @@ export default function SalesBrochure() {
       year: "numeric",
     });
 
-    let msg = `*QUOTATION FROM WETTA BATH FITTINGS*\n`;
-    msg += `----------------------------------\n`;
-    msg += `*Client Details:*\n`;
-    msg += `Name: ${clientName.trim() || "Valued Customer"}\n`;
+    const totalVal = cart.reduce((acc, item) => acc + item.product.mrp * item.quantity, 0);
+    const totalQty = cart.reduce((acc, item) => acc + item.quantity, 0);
+
+    let msg = `*WETTA BATH FITTINGS — SALES QUOTATION*\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    msg += `👤 *CUSTOMER DETAILS*\n`;
+    msg += `• *Name:* ${clientName.trim() || "Valued Customer"}\n`;
     if (clientPhone.trim()) {
-      msg += `Phone: ${clientPhone.trim()}\n`;
+      msg += `• *Phone:* ${clientPhone.trim()}\n`;
     }
-    msg += `Date: ${dateStr}\n`;
+    msg += `• *Date:* ${dateStr}\n`;
     if (clientNote.trim()) {
-      msg += `Note: ${clientNote.trim()}\n`;
+      msg += `• *Notes/Remarks:* ${clientNote.trim()}\n`;
     }
-    msg += `\n*Items Ordered:*\n`;
+    msg += `\n🛒 *ITEMS IN QUOTATION*\n`;
+    msg += `----------------------------------------------------------\n`;
 
     cart.forEach((item, idx) => {
-      msg += `${idx + 1}. [${item.product.itemCode}] ${item.product.description} - Qty: ${item.quantity}\n`;
-      msg += `   MRP: ${formatCurrency(item.product.mrp)} | Total: ${formatCurrency(item.product.mrp * item.quantity)}\n`;
+      const numEmoji = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟"][idx] || `*${idx + 1}.*`;
+      msg += `${numEmoji} *${item.product.itemCode}* - ${item.product.description}\n`;
+      msg += `   • *Qty:* ${item.quantity} pcs\n`;
+      msg += `   • *MRP:* ${formatCurrency(item.product.mrp)}\n`;
+      msg += `   • *Subtotal:* ${formatCurrency(item.product.mrp * item.quantity)}\n\n`;
     });
 
-    const totalVal = cart.reduce((acc, item) => acc + item.product.mrp * item.quantity, 0);
-    msg += `----------------------------------\n`;
-    msg += `*Total Amount:* ${formatCurrency(totalVal)}\n`;
-    msg += `----------------------------------\n`;
-    msg += `Generated via Wetta Digital Brochure.`;
+    msg += `----------------------------------------------------------\n\n`;
+    msg += `💰 *ESTIMATED SUMMARY*\n`;
+    msg += `• *Total Items:* ${cart.length} SKUs\n`;
+    msg += `• *Total Quantity:* ${totalQty} pcs\n`;
+    msg += `• *Grand Total:* *${formatCurrency(totalVal)}*\n\n`;
+    msg += `💡 _Generated digitally via Wetta Showroom Portal_`;
     return msg;
   };
 
@@ -699,33 +708,44 @@ export default function SalesBrochure() {
                 <div className="block md:hidden w-full pt-1">
                   <div 
                     ref={trackRef}
-                    className="bg-slate-205 border border-slate-300 rounded-full h-14 relative flex items-center justify-center overflow-hidden w-full shadow-inner select-none"
+                    className="bg-slate-100/90 border border-slate-300 rounded-full h-14 relative flex items-center justify-center overflow-hidden w-full shadow-inner select-none"
                   >
+                    {/* Sliding Progress Indicator (Grows with swipe offset) */}
+                    <div 
+                      className="absolute left-0 top-0 bottom-0 bg-indigo-50 border-r border-indigo-200/50 rounded-l-full pointer-events-none transition-all duration-75"
+                      style={{ width: `${swipeOffset + 44}px` }}
+                    />
+
+                    {/* Shimmering Flowing Arrow Guides */}
+                    {!isSwiped && (
+                      <div className="absolute right-6 flex items-center gap-1.5 text-slate-400 pointer-events-none">
+                        <ChevronRight className="h-3.5 w-3.5 animate-swipe-flow [animation-delay:0ms]" />
+                        <ChevronRight className="h-3.5 w-3.5 animate-swipe-flow [animation-delay:200ms]" />
+                        <ChevronRight className="h-3.5 w-3.5 animate-swipe-flow [animation-delay:400ms]" />
+                      </div>
+                    )}
+
                     <span 
-                      className="text-[11px] font-extrabold uppercase tracking-widest text-slate-500 pointer-events-none transition-opacity duration-150 animate-pulse"
+                      className="text-[11px] font-extrabold uppercase tracking-widest text-slate-500 pointer-events-none transition-opacity duration-150 animate-pulse relative z-10"
                       style={{ opacity: Math.max(0.1, 1 - (swipeOffset / ((trackRef.current?.clientWidth || 300) - 56)) * 1.5) }}
                     >
                       {isSwiped ? "Sending..." : "Swipe to Send to Admin"}
                     </span>
                     
-                    {/* Sliding Progress Indicator */}
-                    <div 
-                      className="absolute left-0 top-0 bottom-0 bg-slate-900/5 rounded-full pointer-events-none"
-                      style={{ width: `${swipeOffset + 44}px` }}
-                    />
-
                     {/* Touch Swipe Slider Handle */}
                     <div
                       onTouchStart={handleTouchStart}
                       onTouchMove={handleTouchMove}
                       onTouchEnd={handleTouchEnd}
                       style={{ transform: `translateX(${swipeOffset}px)` }}
-                      className={`absolute left-1.5 top-1.5 h-11 w-11 rounded-full flex items-center justify-center shadow-md cursor-grab active:cursor-grabbing transition-all duration-75 ${
-                        isSwiped ? "bg-emerald-600 text-white" : "bg-slate-900 text-white"
+                      className={`absolute left-1.5 top-1.5 h-11 w-11 rounded-full flex items-center justify-center shadow-lg cursor-grab active:cursor-grabbing transition-all duration-75 relative z-20 ${
+                        isSwiped 
+                          ? "bg-emerald-600 text-white" 
+                          : "bg-slate-900 text-white ring-4 ring-slate-950/10 active:ring-slate-950/20"
                       }`}
                     >
                       {isSwiped ? (
-                        <Send className="h-4.5 w-4.5" />
+                        <Send className="h-4.5 w-4.5 animate-bounce" />
                       ) : (
                         <MessageSquare className="h-4.5 w-4.5" />
                       )}
