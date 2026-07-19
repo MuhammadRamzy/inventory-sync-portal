@@ -795,10 +795,6 @@ export default function AdminCommandCenter() {
               Establish Session
             </button>
           </form>
-
-          <div className="text-[10px] text-gray-400 font-bold uppercase text-center border-t border-gray-100 pt-3">
-            Hint: Operator ID = <code className="bg-gray-100 px-1 font-mono text-gray-600">admin</code> / Pass = <code className="bg-gray-100 px-1 font-mono text-gray-600">admin</code>
-          </div>
         </div>
       </div>
     );
@@ -923,16 +919,6 @@ export default function AdminCommandCenter() {
               {activeTab === "settings" && "Quotation Contact Configuration"}
             </h2>
           </div>
-          
-          {activeTab === "master" && (
-            <button
-              onClick={handleResetDB}
-              className="erp-btn erp-btn-secondary text-red-600 hover:text-red-700 hover:bg-red-50 text-[10px] py-1 uppercase tracking-wider"
-              title="Reset database to seed records"
-            >
-              Reset Seed Data
-            </button>
-          )}
         </header>
 
         {/* Workspace Body */}
