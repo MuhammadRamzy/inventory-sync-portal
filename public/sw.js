@@ -1,4 +1,4 @@
-const CACHE_NAME = "wetta-v1";
+const CACHE_NAME = "app-shell-v1";
 const ASSETS = [
   "/",
   "/manifest.json",

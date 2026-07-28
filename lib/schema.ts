@@ -1,18 +1,22 @@
-import { pgTable, text, integer, doublePrecision, timestamp, varchar } from "drizzle-orm/pg-core";
+import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
 
-export const products = pgTable("products", {
-  itemCode: varchar("item_code", { length: 255 }).primaryKey(),
+export const products = sqliteTable("products", {
+  itemCode: text("item_code").primaryKey(),
   description: text("description").notNull(),
-  category: varchar("category", { length: 255 }).notNull(),
-  mrp: doublePrecision("mrp").notNull(),
-  wholesaleRate: doublePrecision("wholesale_rate").notNull(),
+  category: text("category").notNull(),
+  mrp: real("mrp").notNull(),
+  wholesaleRate: real("wholesale_rate").notNull(),
   stockCount: integer("stock_count").notNull(),
-  stockStatus: varchar("stock_status", { length: 50 }).notNull(),
-  lastUpdated: timestamp("last_updated").defaultNow().notNull(),
-  imageUrl: text("image_url"), // Optional image URL for Cloudflare R2
+  stockStatus: text("stock_status").notNull(),
+  lastUpdated: integer("last_updated", { mode: "timestamp_ms" })
+    .notNull()
+    .default(sql`(unixepoch() * 1000)`),
+  // Path clients can fetch directly, e.g. `/api/images/{r2-object-key}`.
+  imageUrl: text("image_url"),
 });
 
-export const settings = pgTable("settings", {
+export const settings = sqliteTable("settings", {
   id: integer("id").primaryKey().default(1),
-  whatsappNumber: varchar("whatsapp_number", { length: 20 }).notNull(),
+  whatsappNumber: text("whatsapp_number").notNull(),
 });

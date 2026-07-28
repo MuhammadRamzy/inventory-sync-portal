@@ -85,6 +85,11 @@ export function compressImage(file: File, maxWidth = 400, maxHeight = 400, quali
   });
 }
 
+export async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
+  const res = await fetch(dataUrl);
+  return res.blob();
+}
+
 export function parseTallyParticulars(particulars: string): { itemCode: string; description: string } {
   const trimmed = particulars.trim();
   // Regex to match code prefixes like "AR 107", "AT109", "PV-2103"

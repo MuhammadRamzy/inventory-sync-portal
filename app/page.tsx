@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import Image from "next/image";
 import {
   Layers,
   RefreshCw,
@@ -20,13 +19,16 @@ import {
   FileText,
   Copy,
   Check,
-  ChevronRight
+  ChevronRight,
+  ZoomIn
 } from "lucide-react";
 import { Product } from "@/lib/types";
-import { getStoredProducts, getAppSettings } from "@/lib/db";
+import { fetchProducts, fetchSettings } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/utils";
+import { BRANDING } from "@/lib/branding";
 import StockBadge from "@/components/StockBadge";
 import EmptyState from "@/components/EmptyState";
+import LogoImage from "@/components/LogoImage";
 
 export default function SalesBrochure() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -34,6 +36,7 @@ export default function SalesBrochure() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [isImageZoomed, setIsImageZoomed] = useState(false);
 
   // Cart Local States
   const [cart, setCart] = useState<{ product: Product; quantity: number }[]>([]);
@@ -47,30 +50,41 @@ export default function SalesBrochure() {
   // Swipe to Send States (Mobile only)
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwiped, setIsSwiped] = useState(false);
-  const [startX, setStartX] = useState(0);
+  const startXRef = useRef(0);
+  // Mirrors swipeOffset synchronously so handleTouchEnd never reads a stale
+  // value if touchmove + touchend fire before React re-renders in between.
+  const swipeOffsetRef = useRef(0);
   const trackRef = useRef<HTMLDivElement>(null);
 
   // Load products initially
-  const loadProducts = () => {
+  const loadProducts = async () => {
     setLoading(true);
-    const data = getStoredProducts();
-    setProducts(data);
-
-    const settings = getAppSettings();
-    setAdminWhatsapp(settings.whatsappNumber);
-
-    setLoading(false);
+    try {
+      const [data, settings] = await Promise.all([fetchProducts(), fetchSettings()]);
+      setProducts(data);
+      setAdminWhatsapp(settings.whatsappNumber);
+    } catch (error) {
+      console.error("Failed to load catalog:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     loadProducts();
-
-    // Listen for database updates
-    window.addEventListener("wetta_db_update", loadProducts);
-    return () => {
-      window.removeEventListener("wetta_db_update", loadProducts);
-    };
   }, []);
+
+  // Lock background scroll while the cart drawer or product modal is open.
+  // The root scrolling element varies by browser, so lock both <html> and <body>.
+  useEffect(() => {
+    const shouldLock = isCartOpen || !!selectedProduct;
+    document.documentElement.style.overflow = shouldLock ? "hidden" : "";
+    document.body.style.overflow = shouldLock ? "hidden" : "";
+    return () => {
+      document.documentElement.style.overflow = "";
+      document.body.style.overflow = "";
+    };
+  }, [isCartOpen, selectedProduct]);
 
   // Filtered categories derived from products list
   const categories = Array.from(new Set(products.map((p) => p.category)));
@@ -117,43 +131,46 @@ export default function SalesBrochure() {
   };
 
   const generateQuotationText = () => {
-    const dateStr = new Date().toLocaleDateString("en-IN", {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString("en-IN", {
       day: "2-digit",
       month: "short",
       year: "numeric",
     });
+    const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+    const quoteRef = `WQ-${now.getTime().toString().slice(-6)}`;
 
     const totalVal = cart.reduce((acc, item) => acc + item.product.mrp * item.quantity, 0);
     const totalQty = cart.reduce((acc, item) => acc + item.quantity, 0);
+    const sep = "─".repeat(32);
 
-    let msg = `*WETTA BATH FITTINGS — SALES QUOTATION*\n`;
-    msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    let msg = `*${BRANDING.companyName.toUpperCase()}*\n`;
+    msg += `_Sales Quotation • Ref: ${quoteRef}_\n`;
+    msg += `${sep}\n\n`;
     msg += `👤 *CUSTOMER DETAILS*\n`;
     msg += `• *Name:* ${clientName.trim() || "Valued Customer"}\n`;
     if (clientPhone.trim()) {
       msg += `• *Phone:* ${clientPhone.trim()}\n`;
     }
-    msg += `• *Date:* ${dateStr}\n`;
+    msg += `• *Date:* ${dateStr}, ${timeStr}\n`;
     if (clientNote.trim()) {
       msg += `• *Notes/Remarks:* ${clientNote.trim()}\n`;
     }
-    msg += `\n🛒 *ITEMS IN QUOTATION*\n`;
-    msg += `----------------------------------------------------------\n`;
+    msg += `\n🛒 *ITEMS IN QUOTATION (${cart.length})*\n`;
+    msg += `${sep}\n`;
 
     cart.forEach((item, idx) => {
       const numEmoji = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟"][idx] || `*${idx + 1}.*`;
-      msg += `${numEmoji} *${item.product.itemCode}* - ${item.product.description}\n`;
-      msg += `   • *Qty:* ${item.quantity} pcs\n`;
-      msg += `   • *MRP:* ${formatCurrency(item.product.mrp)}\n`;
-      msg += `   • *Subtotal:* ${formatCurrency(item.product.mrp * item.quantity)}\n\n`;
+      msg += `${numEmoji} *[${item.product.itemCode}]* ${item.product.description}\n`;
+      msg += `   Qty: *${item.quantity}* pcs  ×  MRP: *${formatCurrency(item.product.mrp)}*  =  *${formatCurrency(item.product.mrp * item.quantity)}*\n\n`;
     });
 
-    msg += `----------------------------------------------------------\n\n`;
-    msg += `💰 *ESTIMATED SUMMARY*\n`;
-    msg += `• *Total Items:* ${cart.length} SKUs\n`;
-    msg += `• *Total Quantity:* ${totalQty} pcs\n`;
-    msg += `• *Grand Total:* *${formatCurrency(totalVal)}*\n\n`;
-    msg += `💡 _Generated digitally via Wetta Showroom Portal_`;
+    msg += `${sep}\n\n`;
+    msg += `💰 *SUMMARY*\n`;
+    msg += `• Total SKUs: *${cart.length}*\n`;
+    msg += `• Total Quantity: *${totalQty} pcs*\n`;
+    msg += `• *Grand Total: ${formatCurrency(totalVal)}*\n\n`;
+    msg += `_Prices shown are suggested MRP and subject to confirmation. Generated via ${BRANDING.companyName} Portal._`;
     return msg;
   };
 
@@ -168,17 +185,21 @@ export default function SalesBrochure() {
   const handleSendQuotation = (target: "admin" | "client" | "custom") => {
     let phone = "";
     if (target === "admin") {
-      phone = adminWhatsapp || "919388833888";
+      if (!adminWhatsapp) {
+        alert("Admin WhatsApp number isn't configured or hasn't loaded yet. Please refresh and try again.");
+        return;
+      }
+      phone = adminWhatsapp;
     } else if (target === "client") {
       phone = clientPhone.replace(/[^0-9]/g, "");
     } else if (target === "custom") {
-      const customNum = prompt("Enter custom WhatsApp number (with country code, e.g. 919388833888):");
+      const customNum = prompt("Enter custom WhatsApp number (with country code, e.g. 910000000000):");
       if (!customNum) return;
       phone = customNum.replace(/[^0-9]/g, "");
     }
 
-    if (!phone) {
-      alert("Please configure or enter a valid WhatsApp phone number.");
+    if (!phone || phone.length < 10) {
+      alert("Please enter a valid WhatsApp phone number (with country code).");
       return;
     }
 
@@ -198,31 +219,35 @@ export default function SalesBrochure() {
   // Mobile Touch Swiper Handlers
   const handleTouchStart = (e: React.TouchEvent) => {
     if (isSwiped) return;
-    setStartX(e.touches[0].clientX);
+    startXRef.current = e.touches[0].clientX;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (isSwiped || !trackRef.current) return;
     const currentX = e.touches[0].clientX;
-    const diff = currentX - startX;
+    const diff = currentX - startXRef.current;
     const maxSlide = trackRef.current.clientWidth - 56; // w-11 handle + margins
     const offset = Math.max(0, Math.min(diff, maxSlide));
+    swipeOffsetRef.current = offset;
     setSwipeOffset(offset);
   };
 
   const handleTouchEnd = () => {
     if (isSwiped || !trackRef.current) return;
     const maxSlide = trackRef.current.clientWidth - 56;
-    if (swipeOffset >= maxSlide * 0.85) {
+    if (swipeOffsetRef.current >= maxSlide * 0.85) {
       // Success swipe state
+      swipeOffsetRef.current = maxSlide;
       setSwipeOffset(maxSlide);
       setIsSwiped(true);
       handleSendQuotation("admin");
       setTimeout(() => {
+        swipeOffsetRef.current = 0;
         setSwipeOffset(0);
         setIsSwiped(false);
       }, 1500);
     } else {
+      swipeOffsetRef.current = 0;
       setSwipeOffset(0);
     }
   };
@@ -276,20 +301,20 @@ export default function SalesBrochure() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 text-slate-900 selection:bg-slate-900 selection:text-white">
+    <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 text-slate-900 selection:bg-brand-900 selection:text-white">
       
       {/* Sidebar - Branding, Search, Categories */}
-      <aside className="w-full md:w-80 md:h-screen md:sticky md:top-0 bg-white border-b md:border-b-0 md:border-r border-slate-200 flex flex-col justify-between p-5 md:p-6 shrink-0 shadow-[2px_0_8px_rgba(15,23,42,0.02)] z-30 overflow-y-auto">
+      <aside className="w-full md:w-64 lg:w-80 md:h-screen md:sticky md:top-0 bg-white border-b md:border-b-0 md:border-r border-slate-200 flex flex-col justify-between p-5 md:p-6 shrink-0 shadow-[2px_0_8px_rgba(15,23,42,0.02)] z-30 overflow-y-auto">
         <div className="space-y-6">
           {/* Logo & Branding */}
           <div className="flex items-center justify-start py-1">
             <div className="h-11 w-auto flex items-center justify-start">
-              <Image src="/logo.png" alt="Wetta Logo" width={180} height={44} className="h-11 w-auto object-contain" priority />
+              <LogoImage width={180} height={44} className="h-11 w-auto object-contain" />
             </div>
           </div>
 
           <p className="text-xs text-slate-500 leading-relaxed hidden md:block">
-            Explore Wetta bath fittings collection, check real-time stock levels, and build custom quotations for WhatsApp sharing.
+            {BRANDING.tagline}
           </p>
 
           {/* Search Box */}
@@ -299,7 +324,7 @@ export default function SalesBrochure() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search catalog code or description..."
-              className="w-full bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 focus:border-slate-800 rounded-md py-2.5 pl-9 pr-8 text-xs text-slate-900 outline-none transition-all focus:ring-1 focus:ring-slate-800"
+              className="w-full bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 focus:border-brand-700 rounded-md py-2.5 pl-9 pr-8 text-xs text-slate-900 outline-none transition-all focus:ring-1 focus:ring-brand-700"
             />
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-3.5 w-3.5 text-slate-400" />
@@ -324,7 +349,7 @@ export default function SalesBrochure() {
                 onClick={() => setSelectedCategory(null)}
                 className={`px-3 py-2 text-xs font-semibold rounded-md border text-left whitespace-nowrap snap-start transition-all ${
                   selectedCategory === null
-                    ? "bg-slate-900 border-slate-900 text-white shadow-sm font-bold"
+                    ? "bg-brand-900 border-brand-900 text-white shadow-sm font-bold"
                     : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
                 }`}
               >
@@ -338,7 +363,7 @@ export default function SalesBrochure() {
                     onClick={() => setSelectedCategory(category)}
                     className={`px-3 py-2 text-xs font-semibold rounded-md border text-left whitespace-nowrap snap-start transition-all ${
                       isSelected
-                        ? "bg-slate-900 border-slate-900 text-white shadow-sm font-bold"
+                        ? "bg-brand-900 border-brand-900 text-white shadow-sm font-bold"
                         : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
                     }`}
                   >
@@ -353,7 +378,7 @@ export default function SalesBrochure() {
         {/* Sync Status Button in Sidebar (desktop only) */}
         <div className="hidden md:flex items-center justify-between border-t border-slate-100 pt-4 mt-6">
           <span className="text-[10px] text-slate-455 font-bold uppercase tracking-wider">
-            Kerala Showroom
+            {BRANDING.regionLabel}
           </span>
           <button 
             onClick={loadProducts}
@@ -366,7 +391,7 @@ export default function SalesBrochure() {
       </aside>
 
       {/* Main product area */}
-      <main className="flex-1 p-4 md:p-6 lg:p-8 space-y-4 max-w-5xl w-full mx-auto">
+      <main className="flex-1 p-4 md:p-6 lg:p-8 space-y-4 max-w-[1800px] w-full mx-auto">
         
         {/* Mobile Header Info */}
         <div className="flex md:hidden justify-between items-center bg-white border border-slate-200 p-3 rounded-md shadow-sm shrink-0">
@@ -388,17 +413,17 @@ export default function SalesBrochure() {
             message="We couldn't find any products matching your current search or category filters. Try checking the item code or reset the search query."
           />
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
             {filteredProducts.map((product) => {
               const cartItem = cart.find((item) => item.product.itemCode === product.itemCode);
               return (
                 <div
                   key={product.itemCode}
                   onClick={() => setSelectedProduct(product)}
-                  className="bg-white border border-slate-200 hover:border-slate-400 rounded-lg p-3.5 flex gap-4 transition-all duration-300 shadow-[0_1px_3px_rgba(15,23,42,0.02)] group hover:shadow-[0_4px_12px_rgba(15,23,42,0.05)] cursor-pointer"
+                  className="bg-white border border-slate-200 hover:border-brand-300 rounded-lg p-3.5 flex gap-3.5 transition-all duration-300 shadow-[0_1px_3px_rgba(15,23,42,0.02)] group hover:shadow-[0_8px_20px_rgba(34,32,94,0.08)] cursor-pointer"
                 >
                   {/* Left Aspect-Square Thumbnail */}
-                  <div className="w-20 h-20 sm:w-24 sm:h-24 shrink-0 bg-slate-50 border border-slate-200/80 rounded-md flex items-center justify-center relative overflow-hidden bg-radial bg-cover">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 bg-slate-50 border border-slate-200/80 rounded-md flex items-center justify-center relative overflow-hidden bg-radial bg-cover">
                     {product.image ? (
                       <img
                         src={product.image}
@@ -412,7 +437,7 @@ export default function SalesBrochure() {
                     )}
 
                     <div className="absolute top-1 left-1">
-                      <span className="num-mono font-bold text-[8px] bg-slate-900 text-white px-1.5 py-0.2 rounded-sm shadow-sm">
+                      <span className="num-mono font-bold text-[8px] bg-brand-900 text-white px-1.5 py-0.2 rounded-sm shadow-sm">
                         {product.itemCode}
                       </span>
                     </div>
@@ -421,20 +446,20 @@ export default function SalesBrochure() {
                   {/* Right Description & Details Column */}
                   <div className="flex-1 flex flex-col justify-between min-w-0">
                     <div className="space-y-1">
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center justify-between gap-1.5">
                         <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 border border-slate-200 rounded uppercase tracking-wider">
                           {product.category}
                         </span>
                         <StockBadge count={product.stockCount} />
                       </div>
-                      
+
                       <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-snug truncate sm:whitespace-normal sm:line-clamp-2">
                         {product.description}
                       </h3>
                     </div>
 
                     {/* Pricing and Actions Row */}
-                    <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2.5 mt-2.5">
+                    <div className="flex flex-col gap-2 border-t border-slate-100 pt-2.5 mt-2.5">
                       <div>
                         <span className="text-[9px] text-slate-400 font-bold uppercase block leading-none">Suggested MRP</span>
                         <span className="num-mono text-sm sm:text-base font-black text-slate-900 mt-1 block">
@@ -444,16 +469,16 @@ export default function SalesBrochure() {
 
                       {/* Add to Cart Actions */}
                       {cartItem ? (
-                        <div 
-                          onClick={(e) => e.stopPropagation()} 
-                          className="flex items-center border border-slate-300 bg-white rounded-md overflow-hidden shadow-xs"
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center justify-between border border-slate-300 bg-white rounded-md overflow-hidden shadow-xs"
                         >
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleUpdateCartQuantity(product.itemCode, cartItem.quantity - 1);
                             }}
-                            className="px-2.5 py-1.5 hover:bg-slate-50 text-slate-550 hover:text-slate-900 transition-colors"
+                            className="px-3 py-2 hover:bg-slate-50 text-slate-550 hover:text-brand-900 transition-colors"
                           >
                             <Minus className="h-3 w-3" />
                           </button>
@@ -465,7 +490,7 @@ export default function SalesBrochure() {
                               e.stopPropagation();
                               handleUpdateCartQuantity(product.itemCode, cartItem.quantity + 1);
                             }}
-                            className="px-2.5 py-1.5 hover:bg-slate-50 text-slate-550 hover:text-slate-900 transition-colors"
+                            className="px-3 py-2 hover:bg-slate-50 text-slate-550 hover:text-brand-900 transition-colors"
                           >
                             <Plus className="h-3 w-3" />
                           </button>
@@ -476,7 +501,7 @@ export default function SalesBrochure() {
                             e.stopPropagation();
                             handleAddToCart(product);
                           }}
-                          className="py-1.5 px-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold transition-colors text-xs flex items-center gap-1.5 rounded-md shadow-xs shrink-0"
+                          className="py-2 px-3.5 bg-brand-900 hover:bg-brand-800 text-white font-bold transition-colors text-xs flex items-center justify-center gap-1.5 rounded-md shadow-xs w-full"
                         >
                           <ShoppingCart className="h-3.5 w-3.5" /> Add to Cart
                         </button>
@@ -491,18 +516,27 @@ export default function SalesBrochure() {
 
         {/* Footer Branding info */}
         <footer className="text-center py-8 text-[9px] text-slate-400 font-bold uppercase tracking-widest border-t border-slate-200 mt-10 space-y-1">
-          <div>WETTA BATH FITTINGS &copy; {new Date().getFullYear()} • KERALA DISTRIBUTOR</div>
-          <div className="text-[9px] text-slate-400 font-medium normal-case tracking-normal">
-            Made by <span className="font-semibold text-slate-600">Mr.Solutions</span> |{" "}
-            <a
-              href="https://wa.me/917592887426"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-slate-600 hover:text-slate-900 underline underline-offset-2 transition-colors font-semibold"
-            >
-              for digital solutions
-            </a>
+          <div>
+            {BRANDING.companyName.toUpperCase()} &copy; {new Date().getFullYear()}
+            {BRANDING.regionLabel ? ` • ${BRANDING.regionLabel.toUpperCase()}` : ""}
           </div>
+          {BRANDING.poweredByLabel && (
+            <div className="text-[9px] text-slate-400 font-medium normal-case tracking-normal">
+              Made by{" "}
+              {BRANDING.poweredByUrl ? (
+                <a
+                  href={BRANDING.poweredByUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-slate-600 hover:text-slate-900 underline underline-offset-2 transition-colors font-semibold"
+                >
+                  {BRANDING.poweredByLabel}
+                </a>
+              ) : (
+                <span className="font-semibold text-slate-600">{BRANDING.poweredByLabel}</span>
+              )}
+            </div>
+          )}
         </footer>
 
       </main>
@@ -511,14 +545,14 @@ export default function SalesBrochure() {
       {cart.length > 0 && (
         <button
           onClick={() => setIsCartOpen(true)}
-          className="fixed bottom-6 right-6 z-40 bg-slate-900 text-white p-4 shadow-2xl hover:bg-slate-800 transition-all flex items-center gap-2 border-2 border-white rounded-full animate-fade-in hover:scale-103 group"
+          className="fixed bottom-6 right-6 z-40 bg-brand-900 text-white p-4 shadow-2xl hover:bg-brand-800 transition-all flex items-center gap-2 border-2 border-white rounded-full animate-fade-in hover:scale-103 group"
         >
           <ShoppingCart className="h-5 w-5" />
           <span className="text-xs font-bold uppercase tracking-wider hidden sm:inline">Quotation Cart</span>
-          <span className="bg-white text-slate-900 font-black text-xs px-2.5 py-0.5 rounded-full num-mono shadow-sm group-hover:scale-105 transition-transform">
+          <span className="bg-white text-brand-900 font-black text-xs px-2.5 py-0.5 rounded-full num-mono shadow-sm group-hover:scale-105 transition-transform">
             {cart.reduce((acc, item) => acc + item.quantity, 0)}
           </span>
-          <span className="absolute -inset-1 rounded-full border border-slate-850 animate-ping opacity-25 pointer-events-none" />
+          <span className="absolute -inset-1 rounded-full border border-brand-800 animate-ping opacity-25 pointer-events-none" />
         </button>
       )}
 
@@ -529,14 +563,14 @@ export default function SalesBrochure() {
           <div className="bg-white w-full max-w-md h-full flex flex-col shadow-2xl border-l border-slate-250 animate-slide-in text-slate-900">
             
             {/* Header */}
-            <div className="bg-slate-900 px-5 py-5 flex items-center justify-between shrink-0 text-white border-b border-slate-950">
+            <div className="bg-brand-900 px-5 py-5 flex items-center justify-between shrink-0 text-white border-b border-brand-950">
               <div className="flex items-center gap-2.5">
-                <ShoppingBag className="h-5.5 w-5.5 text-slate-300" />
+                <ShoppingBag className="h-5.5 w-5.5 text-brand-200" />
                 <h3 className="font-bold text-base uppercase tracking-wider">Quotation Builder</h3>
               </div>
-              <button 
-                onClick={() => setIsCartOpen(false)} 
-                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-750 rounded-md transition-colors"
+              <button
+                onClick={() => setIsCartOpen(false)}
+                className="p-2 bg-brand-800 hover:bg-brand-700 text-brand-200 hover:text-white border border-brand-700 rounded-md transition-colors"
               >
                 <X className="h-4.5 w-4.5" />
               </button>
@@ -586,28 +620,28 @@ export default function SalesBrochure() {
                         {/* Details */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <span className="num-mono font-bold text-[9px] bg-slate-900 text-white px-2 py-0.2 rounded-sm">{item.product.itemCode}</span>
+                            <span className="num-mono font-bold text-[9px] bg-brand-900 text-white px-2 py-0.2 rounded-sm">{item.product.itemCode}</span>
                             <span className="text-[8px] font-bold text-slate-500 bg-slate-100 px-2 py-0.2 rounded-sm uppercase tracking-wide truncate border border-slate-200">{item.product.category}</span>
                           </div>
                           <h4 className="text-xs font-bold text-slate-800 truncate mt-1">{item.product.description}</h4>
-                          
+
                           {/* Quantity Controls inside Cart Drawer */}
                           <div className="flex justify-between items-center mt-3">
                             <div className="flex items-center border border-slate-300 bg-white rounded overflow-hidden">
                               <button
                                 onClick={() => handleUpdateCartQuantity(item.product.itemCode, item.quantity - 1)}
-                                className="px-2 py-1 hover:bg-slate-50 text-slate-500 hover:text-slate-900 transition-colors"
+                                className="px-3 py-2 hover:bg-slate-50 active:bg-slate-100 text-slate-500 hover:text-brand-900 transition-colors"
                               >
-                                <Minus className="h-2.5 w-2.5" />
+                                <Minus className="h-3 w-3" />
                               </button>
-                              <span className="px-2 text-xs font-bold num-mono text-slate-850">
+                              <span className="px-2.5 text-xs font-bold num-mono text-slate-850 min-w-[1.5rem] text-center">
                                 {item.quantity}
                               </span>
                               <button
                                 onClick={() => handleUpdateCartQuantity(item.product.itemCode, item.quantity + 1)}
-                                className="px-2 py-1 hover:bg-slate-50 text-slate-500 hover:text-slate-900 transition-colors"
+                                className="px-3 py-2 hover:bg-slate-50 active:bg-slate-100 text-slate-500 hover:text-brand-900 transition-colors"
                               >
-                                <Plus className="h-2.5 w-2.5" />
+                                <Plus className="h-3 w-3" />
                               </button>
                             </div>
                             <span className="num-mono text-xs font-bold text-slate-905">
@@ -619,7 +653,7 @@ export default function SalesBrochure() {
                         {/* Delete Button */}
                         <button
                           onClick={() => handleRemoveFromCart(item.product.itemCode)}
-                          className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-650 border border-transparent hover:border-slate-200 rounded transition-all shrink-0 self-start"
+                          className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-650 border border-transparent hover:border-slate-200 rounded transition-all shrink-0 self-start"
                           title="Remove item"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -654,7 +688,7 @@ export default function SalesBrochure() {
                             value={clientName}
                             onChange={(e) => setClientName(e.target.value)}
                             placeholder="E.G., Ramachandran K."
-                            className="w-full bg-slate-50 border border-slate-200 focus:border-slate-800 rounded-md py-3 pl-9 pr-3 text-xs text-slate-800 outline-none transition-all"
+                            className="w-full bg-slate-50 border border-slate-200 focus:border-brand-700 rounded-md py-3 pl-9 pr-3 text-xs text-slate-800 outline-none transition-all"
                           />
                           <User className="absolute left-3 top-3 h-3.5 w-3.5 text-slate-400" />
                         </div>
@@ -671,7 +705,7 @@ export default function SalesBrochure() {
                             value={clientPhone}
                             onChange={(e) => setClientPhone(e.target.value)}
                             placeholder="E.G., 9388833888"
-                            className="w-full bg-slate-50 border border-slate-200 focus:border-slate-800 rounded-md py-3 pl-9 pr-3 text-xs text-slate-800 outline-none num-mono transition-all"
+                            className="w-full bg-slate-50 border border-slate-200 focus:border-brand-700 rounded-md py-3 pl-9 pr-3 text-xs text-slate-800 outline-none num-mono transition-all"
                           />
                           <Phone className="absolute left-3 top-3 h-3.5 w-3.5 text-slate-400" />
                         </div>
@@ -688,7 +722,7 @@ export default function SalesBrochure() {
                             onChange={(e) => setClientNote(e.target.value)}
                             placeholder="E.G., Requesting 10% discount on health faucets..."
                             rows={2.5}
-                            className="w-full bg-slate-50 border border-slate-200 focus:border-slate-800 rounded-md py-3 pl-9 pr-3 text-xs text-slate-800 outline-none resize-none transition-all"
+                            className="w-full bg-slate-50 border border-slate-200 focus:border-brand-700 rounded-md py-3 pl-9 pr-3 text-xs text-slate-800 outline-none resize-none transition-all"
                           />
                           <FileText className="absolute left-3 top-3 h-3.5 w-3.5 text-slate-400" />
                         </div>
@@ -705,7 +739,7 @@ export default function SalesBrochure() {
                 {/* Desktop Send to Admin Button */}
                 <button
                   onClick={() => handleSendQuotation("admin")}
-                  className="hidden md:flex w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold transition-colors text-xs uppercase tracking-wider items-center justify-center gap-2 rounded-md shadow-sm"
+                  className="hidden md:flex w-full py-3.5 bg-brand-900 hover:bg-brand-800 text-white font-bold transition-colors text-xs uppercase tracking-wider items-center justify-center gap-2 rounded-md shadow-sm"
                 >
                   <MessageSquare className="h-4 w-4" /> Send to Admin WhatsApp
                 </button>
@@ -717,8 +751,8 @@ export default function SalesBrochure() {
                     className="bg-slate-100/90 border border-slate-300 rounded-full h-14 relative flex items-center justify-center overflow-hidden w-full shadow-inner select-none"
                   >
                     {/* Sliding Progress Indicator (Grows with swipe offset) */}
-                    <div 
-                      className="absolute left-0 top-0 bottom-0 bg-indigo-50 border-r border-indigo-200/50 rounded-l-full pointer-events-none transition-all duration-75"
+                    <div
+                      className="absolute left-0 top-0 bottom-0 bg-brand-100 border-r border-brand-200/50 rounded-l-full pointer-events-none transition-all duration-75"
                       style={{ width: `${swipeOffset + 44}px` }}
                     />
 
@@ -744,10 +778,10 @@ export default function SalesBrochure() {
                       onTouchMove={handleTouchMove}
                       onTouchEnd={handleTouchEnd}
                       style={{ transform: `translateX(${swipeOffset}px)` }}
-                      className={`absolute left-1.5 top-1.5 h-11 w-11 rounded-full flex items-center justify-center shadow-lg cursor-grab active:cursor-grabbing transition-all duration-75 relative z-20 ${
-                        isSwiped 
-                          ? "bg-emerald-600 text-white" 
-                          : "bg-slate-900 text-white ring-4 ring-slate-950/10 active:ring-slate-950/20"
+                      className={`absolute left-1.5 top-1.5 z-20 h-11 w-11 rounded-full flex items-center justify-center shadow-lg cursor-grab active:cursor-grabbing transition-all duration-75 ${
+                        isSwiped
+                          ? "bg-emerald-600 text-white"
+                          : "bg-brand-900 text-white ring-4 ring-brand-950/10 active:ring-brand-950/20"
                       }`}
                     >
                       {isSwiped ? (
@@ -802,14 +836,14 @@ export default function SalesBrochure() {
       {selectedProduct && (() => {
         const cartItem = cart.find((item) => item.product.itemCode === selectedProduct.itemCode);
         return (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => setSelectedProduct(null)}>
-            <div 
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => { setSelectedProduct(null); setIsImageZoomed(false); }}>
+            <div
               className="bg-white border border-slate-350 max-w-lg w-full rounded-xl overflow-hidden shadow-2xl relative animate-in zoom-in-95 duration-200"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Close Button */}
-              <button 
-                onClick={() => setSelectedProduct(null)}
+              <button
+                onClick={() => { setSelectedProduct(null); setIsImageZoomed(false); }}
                 className="absolute right-4 top-4 bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 p-2 rounded-full transition-colors z-10"
               >
                 <X className="h-4 w-4" />
@@ -817,21 +851,31 @@ export default function SalesBrochure() {
 
               {/* Main Content Grid */}
               <div className="flex flex-col sm:flex-row">
-                
+
                 {/* Left Column: Media / Illustration */}
-                <div className="w-full sm:w-2/5 bg-slate-50 border-b sm:border-b-0 sm:border-r border-slate-200 flex items-center justify-center p-6 relative min-h-[160px] sm:min-h-[220px]">
+                <div
+                  className={`w-full sm:w-2/5 bg-slate-50 border-b sm:border-b-0 sm:border-r border-slate-200 flex items-center justify-center p-6 relative min-h-[160px] sm:min-h-[220px] group/media ${selectedProduct.image ? "cursor-zoom-in" : ""}`}
+                  onClick={() => selectedProduct.image && setIsImageZoomed(true)}
+                >
                   {selectedProduct.image ? (
-                    <img 
-                      src={selectedProduct.image} 
-                      alt={selectedProduct.description} 
-                      className="w-full h-full object-contain max-h-[180px]"
-                    />
+                    <>
+                      <img
+                        src={selectedProduct.image}
+                        alt={selectedProduct.description}
+                        className="w-full h-full object-contain max-h-[180px]"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-slate-900/0 group-hover/media:bg-slate-900/20 transition-colors">
+                        <div className="bg-white/90 text-slate-700 rounded-full p-2 opacity-0 group-hover/media:opacity-100 transition-opacity shadow-sm">
+                          <ZoomIn className="h-4 w-4" />
+                        </div>
+                      </div>
+                    </>
                   ) : (
                     <div className="scale-125 select-none">
                       {renderCategoryIllustration(selectedProduct.category)}
                     </div>
                   )}
-                  <span className="absolute bottom-3 left-3 num-mono font-bold text-xs bg-slate-900 text-white px-2 py-0.5 rounded shadow-sm">
+                  <span className="absolute bottom-3 left-3 num-mono font-bold text-xs bg-brand-900 text-white px-2 py-0.5 rounded shadow-sm">
                     {selectedProduct.itemCode}
                   </span>
                 </div>
@@ -874,7 +918,7 @@ export default function SalesBrochure() {
                       <div className="flex items-center border border-slate-300 bg-white rounded-md overflow-hidden shadow-sm">
                         <button
                           onClick={() => handleUpdateCartQuantity(selectedProduct.itemCode, cartItem.quantity - 1)}
-                          className="px-3 py-2 hover:bg-slate-50 text-slate-550 hover:text-slate-900 transition-colors"
+                          className="px-3 py-2 hover:bg-slate-50 text-slate-550 hover:text-brand-900 transition-colors"
                         >
                           <Minus className="h-3 w-3" />
                         </button>
@@ -883,7 +927,7 @@ export default function SalesBrochure() {
                         </span>
                         <button
                           onClick={() => handleUpdateCartQuantity(selectedProduct.itemCode, cartItem.quantity + 1)}
-                          className="px-3 py-2 hover:bg-slate-50 text-slate-550 hover:text-slate-900 transition-colors"
+                          className="px-3 py-2 hover:bg-slate-50 text-slate-550 hover:text-brand-900 transition-colors"
                         >
                           <Plus className="h-3 w-3" />
                         </button>
@@ -891,7 +935,7 @@ export default function SalesBrochure() {
                     ) : (
                       <button
                         onClick={() => handleAddToCart(selectedProduct)}
-                        className="py-2 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold transition-colors text-xs flex items-center gap-2 rounded-md shadow-sm shrink-0"
+                        className="py-2 px-4 bg-brand-900 hover:bg-brand-800 text-white font-bold transition-colors text-xs flex items-center gap-2 rounded-md shadow-sm shrink-0"
                       >
                         <ShoppingCart className="h-4 w-4" /> Add to Quote
                       </button>
@@ -906,6 +950,27 @@ export default function SalesBrochure() {
           </div>
         );
       })()}
+
+      {/* Full-screen Image Lightbox */}
+      {isImageZoomed && selectedProduct?.image && (
+        <div
+          className="fixed inset-0 z-[60] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setIsImageZoomed(false)}
+        >
+          <button
+            onClick={() => setIsImageZoomed(false)}
+            className="absolute right-4 top-4 bg-white/10 hover:bg-white/20 text-white p-2 rounded-full transition-colors z-10"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <img
+            src={selectedProduct.image}
+            alt={selectedProduct.description}
+            className="max-w-full max-h-full object-contain rounded-lg animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
 
     </div>
   );

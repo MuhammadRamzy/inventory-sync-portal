@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import PWARegister from "@/components/PWARegister";
+import { BRANDING } from "@/lib/branding";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -16,13 +17,13 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Wetta B2B Inventory & Orders",
-  description: "Sales Team Portal & Admin Command Center for Wetta Bath Fittings Distribution",
-  manifest: "/manifest.json",
+  title: `${BRANDING.companyName} — B2B Catalog & Inventory`,
+  description: `Sales catalog and admin inventory console for ${BRANDING.companyName}`,
+  manifest: process.env.NEXT_PUBLIC_MANIFEST_PATH || "/manifest-demo.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Wetta Portal",
+    title: `${BRANDING.companyName} Sales`,
   },
 };
 

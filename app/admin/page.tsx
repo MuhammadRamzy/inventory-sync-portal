@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import {
   ArrowLeft,
   Database,
@@ -20,32 +19,35 @@ import {
   Settings,
   Layers,
   Plus,
-  Shield
+  Shield,
+  Package,
+  XCircle
 } from "lucide-react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { AppSettings, Product } from "@/lib/types";
 import {
-  getStoredProducts,
-  saveStoredProducts,
-  addProduct,
-  updateProductInline,
-  bulkUpdateProducts,
-  resetDatabase,
-  getAppSettings,
-  saveAppSettings,
-  differentialStockSync
-} from "@/lib/db";
+  fetchProducts,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  bulkSyncProducts,
+  fetchSettings,
+  saveSettings,
+  uploadImage,
+} from "@/lib/api-client";
 import { formatCurrency, compressImage, parseTallyParticulars } from "@/lib/utils";
+import { BRANDING } from "@/lib/branding";
 import StockBadge from "@/components/StockBadge";
 import SearchBar from "@/components/SearchBar";
 import CategoryFilterPills from "@/components/CategoryFilterPills";
+import LogoImage from "@/components/LogoImage";
 
 // Admin Profile constant
 const ADMIN_USER = {
-  name: "Muhammad Ramzy",
-  role: "Admin",
-  location: "Kerala Operations",
+  name: BRANDING.adminDisplayName,
+  role: BRANDING.adminRole,
+  location: BRANDING.regionLabel,
 };
 
 interface CsvRowPreview {
@@ -54,8 +56,8 @@ interface CsvRowPreview {
   currentStock: number;
   newStock: number;
   difference: number;
-  currentMrp: number;
-  newMrp: number;
+  currentMrp?: number;
+  newMrp?: number;
   status: "Matched" | "Unrecognized" | "No change" | "Malformed";
   category?: string;
   errorDetails?: string;
@@ -75,8 +77,8 @@ function getAdminCredentials() {
   if (typeof window === "undefined") {
     return { username: "admin", passwordHash: "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918" };
   }
-  const username = localStorage.getItem("wetta_admin_username") || "admin";
-  const passwordHash = localStorage.getItem("wetta_admin_password_hash") || "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918";
+  const username = localStorage.getItem("admin_username") || "admin";
+  const passwordHash = localStorage.getItem("admin_password_hash") || "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918";
   return { username, passwordHash };
 }
 
@@ -91,9 +93,13 @@ export default function AdminCommandCenter() {
   const [sortField, setSortField] = useState<keyof Product>("itemCode");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [editingRow, setEditingRow] = useState<string | null>(null);
+  const [editDescription, setEditDescription] = useState<string>("");
+  const [editCategory, setEditCategory] = useState<string>("");
   const [editRate, setEditRate] = useState<string>("");
   const [editStock, setEditStock] = useState<string>("");
   const [editImage, setEditImage] = useState<string>("");
+  const [editImageUploading, setEditImageUploading] = useState(false);
+  const [savingRow, setSavingRow] = useState(false);
 
   // --- Settings States ---
   const [whatsappNumber, setWhatsappNumber] = useState("");
@@ -106,21 +112,26 @@ export default function AdminCommandCenter() {
   const [manualForm, setManualForm] = useState({
     itemCode: "",
     description: "",
-    category: "Health Faucets" as string,
+    category: BRANDING.defaultCategories[0] as string,
     mrp: "",
     wholesaleRate: "",
     stockCount: "",
     image: "",
   });
   const [manualErrors, setManualErrors] = useState<Record<string, string>>({});
+  const [isCreatingManualCategory, setIsCreatingManualCategory] = useState(false);
+  const [newManualCategoryName, setNewManualCategoryName] = useState("");
+  const [manualImageUploading, setManualImageUploading] = useState(false);
+  const [submittingManual, setSubmittingManual] = useState(false);
 
   // --- Bulk Tally Sync States ---
   const [dragActive, setDragActive] = useState(false);
   const [csvFileName, setCsvFileName] = useState<string | null>(null);
   const [parsedRows, setParsedRows] = useState<CsvRowPreview[]>([]);
   const [showSyncConfirm, setShowSyncConfirm] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [selectedRows, setSelectedRows] = useState<number[]>([]); // indexes of rows in parsedRows
-  const [bulkCategory, setBulkCategory] = useState("Health Faucets");
+  const [bulkCategory, setBulkCategory] = useState(BRANDING.defaultCategories[0]);
   const [isCreatingBulkCategory, setIsCreatingBulkCategory] = useState(false);
   const [newBulkCategoryName, setNewBulkCategoryName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -132,30 +143,32 @@ export default function AdminCommandCenter() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
 
-  // Load products initially and set up listeners
-  const loadProducts = () => {
-    setProducts(getStoredProducts());
+  // Load products initially
+  const loadProducts = async () => {
+    try {
+      const data = await fetchProducts();
+      setProducts(data);
+    } catch (error) {
+      console.error("Failed to load products:", error);
+      showToast("error", "Failed to load inventory from the database.");
+    }
   };
 
   useEffect(() => {
-    const session = localStorage.getItem("wetta_admin_auth");
+    const session = localStorage.getItem("admin_auth_session");
     if (session === "true") {
       setIsAuthenticated(true);
     }
     setCheckingAuth(false);
 
     loadProducts();
-    const settings = getAppSettings();
-    setWhatsappNumber(settings.whatsappNumber);
+    fetchSettings()
+      .then((settings) => setWhatsappNumber(settings.whatsappNumber))
+      .catch((error) => console.error("Failed to load settings:", error));
 
     // Prefill settings username
     const creds = getAdminCredentials();
     setNewUsername(creds.username);
-
-    window.addEventListener("wetta_db_update", loadProducts);
-    return () => {
-      window.removeEventListener("wetta_db_update", loadProducts);
-    };
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -167,19 +180,19 @@ export default function AdminCommandCenter() {
       loginUsername.trim().toLowerCase() === creds.username.toLowerCase() &&
       inputHash === creds.passwordHash
     ) {
-      localStorage.setItem("wetta_admin_auth", "true");
+      localStorage.setItem("admin_auth_session", "true");
       setIsAuthenticated(true);
       setLoginError("");
       setLoginUsername("");
       setLoginPassword("");
-      showToast("success", "Welcome back, Muhammad Ramzy!");
+      showToast("success", `Welcome back, ${ADMIN_USER.name}!`);
     } else {
       setLoginError("Invalid Operator ID or Password credentials.");
     }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("wetta_admin_auth");
+    localStorage.removeItem("admin_auth_session");
     setIsAuthenticated(false);
     showToast("success", "Session cleared. Operator logged out.");
   };
@@ -208,8 +221,8 @@ export default function AdminCommandCenter() {
 
     // Save updated credentials
     const newHash = await hashPassword(newPassword);
-    localStorage.setItem("wetta_admin_username", newUsername.trim());
-    localStorage.setItem("wetta_admin_password_hash", newHash);
+    localStorage.setItem("admin_username", newUsername.trim());
+    localStorage.setItem("admin_password_hash", newHash);
 
     // Reset inputs
     setCurrPassword("");
@@ -219,7 +232,7 @@ export default function AdminCommandCenter() {
     showToast("success", "Security credentials updated successfully.");
   };
 
-  const handleSaveSettings = (e: React.FormEvent) => {
+  const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!whatsappNumber.trim()) {
       showToast("error", "WhatsApp number cannot be empty.");
@@ -230,8 +243,12 @@ export default function AdminCommandCenter() {
       showToast("error", "Please enter a valid WhatsApp phone number.");
       return;
     }
-    saveAppSettings({ whatsappNumber: cleanNumber });
-    showToast("success", "Settings saved successfully.");
+    const result = await saveSettings({ whatsappNumber: cleanNumber });
+    if (result.success) {
+      showToast("success", "Settings saved successfully.");
+    } else {
+      showToast("error", result.error || "Failed to save settings.");
+    }
   };
 
   // Toast helper
@@ -254,6 +271,8 @@ export default function AdminCommandCenter() {
 
   const startEditing = (product: Product) => {
     setEditingRow(product.itemCode);
+    setEditDescription(product.description);
+    setEditCategory(product.category);
     setEditRate(product.wholesaleRate.toString());
     setEditStock(product.stockCount.toString());
     setEditImage(product.image || "");
@@ -261,12 +280,40 @@ export default function AdminCommandCenter() {
 
   const cancelEditing = () => {
     setEditingRow(null);
+    setEditImageUploading(false);
   };
 
-  const saveInlineEdit = (itemCode: string) => {
+  const handleEditImageSelect = async (file: File) => {
+    try {
+      const compressed = await compressImage(file);
+      setEditImage(compressed); // instant local preview
+      setEditImageUploading(true);
+      const result = await uploadImage(compressed, file.name);
+      if ("error" in result) {
+        showToast("error", result.error);
+        setEditImage("");
+      } else {
+        setEditImage(result.url);
+      }
+    } catch {
+      showToast("error", "Failed to compress image.");
+    } finally {
+      setEditImageUploading(false);
+    }
+  };
+
+  const saveInlineEdit = async (itemCode: string) => {
     const rateNum = parseFloat(editRate);
     const stockNum = parseInt(editStock, 10);
 
+    if (!editDescription.trim()) {
+      showToast("error", "Description cannot be empty.");
+      return;
+    }
+    if (!editCategory.trim()) {
+      showToast("error", "Category cannot be empty.");
+      return;
+    }
     if (isNaN(rateNum) || rateNum <= 0) {
       showToast("error", "Rate must be a positive number.");
       return;
@@ -275,41 +322,52 @@ export default function AdminCommandCenter() {
       showToast("error", "Stock count must be a non-negative integer.");
       return;
     }
+    if (editImageUploading) {
+      showToast("error", "Please wait for the image upload to finish.");
+      return;
+    }
 
-    const success = updateProductInline(itemCode, {
+    setSavingRow(true);
+    const result = await updateProduct(itemCode, {
+      description: editDescription.trim(),
+      category: editCategory,
       wholesaleRate: rateNum,
       stockCount: stockNum,
       image: editImage,
     });
+    setSavingRow(false);
 
-    if (success) {
+    if (result.success) {
       showToast("success", `Product ${itemCode} updated successfully.`);
       setEditingRow(null);
+      loadProducts();
     } else {
-      showToast("error", `Failed to update product ${itemCode}.`);
+      showToast("error", result.error || `Failed to update product ${itemCode}.`);
     }
   };
 
-  const deleteProductItem = (itemCode: string) => {
+  const deleteProductItem = async (itemCode: string) => {
     if (confirm(`Are you sure you want to delete product '${itemCode}'?`)) {
-      const updated = products.filter((p) => p.itemCode !== itemCode);
-      saveStoredProducts(updated);
-      showToast("success", `Product ${itemCode} deleted.`);
+      const result = await deleteProduct(itemCode);
+      if (result.success) {
+        showToast("success", `Product ${itemCode} deleted.`);
+        loadProducts();
+      } else {
+        showToast("error", result.error || `Failed to delete product ${itemCode}.`);
+      }
     }
   };
 
-  const handleResetDB = () => {
-    if (confirm("This will reset all inventory data back to the default seed. Are you sure?")) {
-      resetDatabase();
-      showToast("success", "Database reset to initial seeds.");
-    }
-  };
+  // Inventory-wide stats (Master tab summary bar)
+  const inStockCount = products.filter((p) => p.stockStatus === "In Stock").length;
+  const lowStockCount = products.filter((p) => p.stockStatus === "Low Stock").length;
+  const outOfStockCount = products.filter((p) => p.stockStatus === "Out of Stock").length;
 
   // Filter & Sort Master list
   const categories = Array.from(new Set(products.map((p) => p.category)));
   const dbCategories = Array.from(new Set(products.map((p) => p.category)));
   const parsedCategories = Array.from(new Set(parsedRows.map((p) => p.category).filter(Boolean))) as string[];
-  const defaultCategories = ["Health Faucets", "Showers", "Accessories", "Table Top"];
+  const defaultCategories = [...BRANDING.defaultCategories];
   const allCategories = Array.from(new Set([...defaultCategories, ...dbCategories, ...parsedCategories])).filter(Boolean);
 
   const filteredMasterProducts = products
@@ -385,11 +443,35 @@ export default function AdminCommandCenter() {
     return Object.keys(errors).length === 0;
   };
 
-  const handleManualSubmit = (e: React.FormEvent) => {
+  const handleManualImageSelect = async (file: File) => {
+    try {
+      const compressed = await compressImage(file);
+      setManualForm((prev) => ({ ...prev, image: compressed })); // instant local preview
+      setManualImageUploading(true);
+      const result = await uploadImage(compressed, file.name);
+      if ("error" in result) {
+        showToast("error", result.error);
+        setManualForm((prev) => ({ ...prev, image: "" }));
+      } else {
+        setManualForm((prev) => ({ ...prev, image: result.url }));
+      }
+    } catch {
+      showToast("error", "Failed to compress image.");
+    } finally {
+      setManualImageUploading(false);
+    }
+  };
+
+  const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateManualForm()) return;
+    if (manualImageUploading) {
+      showToast("error", "Please wait for the image upload to finish.");
+      return;
+    }
 
-    const result = addProduct({
+    setSubmittingManual(true);
+    const result = await createProduct({
       itemCode: manualForm.itemCode.trim().toUpperCase(),
       description: manualForm.description.trim(),
       category: manualForm.category,
@@ -398,6 +480,7 @@ export default function AdminCommandCenter() {
       stockCount: parseInt(manualForm.stockCount, 10),
       image: manualForm.image,
     });
+    setSubmittingManual(false);
 
     if (result.success) {
       showToast("success", `Product ${manualForm.itemCode.toUpperCase()} added successfully.`);
@@ -405,13 +488,14 @@ export default function AdminCommandCenter() {
       setManualForm({
         itemCode: "",
         description: "",
-        category: "Health Faucets",
+        category: BRANDING.defaultCategories[0],
         mrp: "",
         wholesaleRate: "",
         stockCount: "",
         image: "",
       });
       setManualErrors({});
+      loadProducts();
     } else {
       showToast("error", result.error || "Failed to add product.");
     }
@@ -500,7 +584,7 @@ export default function AdminCommandCenter() {
             if (row) {
               for (let j = 0; j < row.length; j++) {
                 const val = String(row[j] || "").trim();
-                if (val === "Table Top" || val === "Health Faucets" || val === "Showers" || val === "Accessories") {
+                if (BRANDING.defaultCategories.includes(val)) {
                   foundCategory = val;
                   break;
                 }
@@ -508,7 +592,7 @@ export default function AdminCommandCenter() {
             }
             if (foundCategory) break;
           }
-          const category = foundCategory || "Table Top";
+          const category = foundCategory || BRANDING.defaultCategories[BRANDING.defaultCategories.length - 1];
 
           let headerRowIndex = -1;
           for (let i = 0; i < rows.length; i++) {
@@ -551,7 +635,7 @@ export default function AdminCommandCenter() {
               status = "No change";
             }
             
-            const rowCategory = matchedProd ? matchedProd.category : (foundCategory || "Table Top");
+            const rowCategory = matchedProd ? matchedProd.category : (foundCategory || BRANDING.defaultCategories[BRANDING.defaultCategories.length - 1]);
 
             previewList.push({
               itemCode,
@@ -683,7 +767,7 @@ export default function AdminCommandCenter() {
               currentMrp,
               newMrp,
               status,
-              category: matchedProd ? matchedProd.category : "Table Top",
+              category: matchedProd ? matchedProd.category : BRANDING.defaultCategories[BRANDING.defaultCategories.length - 1],
             };
           });
 
@@ -698,9 +782,9 @@ export default function AdminCommandCenter() {
     }
   };
 
-  const handleCommitSync = () => {
+  const handleCommitSync = async () => {
     const validRows = parsedRows.filter((r) => r.status === "Matched" || r.status === "Unrecognized");
-    
+
     if (validRows.length === 0) {
       showToast("error", "No valid rows to commit updates for.");
       return;
@@ -711,20 +795,26 @@ export default function AdminCommandCenter() {
       description: r.description,
       stockCount: r.newStock,
       mrp: r.newMrp || 0,
-      category: r.category || "Table Top"
+      category: r.category || BRANDING.defaultCategories[BRANDING.defaultCategories.length - 1]
     }));
 
-    const result = differentialStockSync(updates);
-    
-    showToast(
-      "success",
-      `Tally Bulk Sync Complete! Updated ${result.successCount} items and created ${result.createdCount} new items.`
-    );
-
-    setCsvFileName(null);
-    setParsedRows([]);
-    setShowSyncConfirm(false);
-    setActiveTab("master");
+    setIsSyncing(true);
+    try {
+      const result = await bulkSyncProducts(updates);
+      showToast(
+        "success",
+        `Tally Bulk Sync Complete! Updated ${result.successCount} items and created ${result.createdCount} new items.`
+      );
+      setCsvFileName(null);
+      setParsedRows([]);
+      setShowSyncConfirm(false);
+      setActiveTab("master");
+      loadProducts();
+    } catch (error) {
+      showToast("error", error instanceof Error ? error.message : "Failed to commit sync.");
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const validRowsCount = parsedRows.filter((r) => r.status === "Matched" || r.status === "Unrecognized").length;
@@ -732,7 +822,7 @@ export default function AdminCommandCenter() {
   if (checkingAuth) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-indigo-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-500"></div>
       </div>
     );
   }
@@ -743,10 +833,10 @@ export default function AdminCommandCenter() {
         <div className="w-full max-w-sm bg-white border border-gray-300 shadow-2xl p-6 rounded-none space-y-5 animate-in zoom-in-95 duration-200">
           <div className="flex flex-col items-center text-center space-y-3 border-b border-gray-200 pb-4">
             <div className="h-12 w-auto flex items-center justify-center">
-              <Image src="/logo.png" alt="Wetta Logo" width={160} height={40} className="h-10 w-auto object-contain" priority />
+              <LogoImage width={160} height={40} className="h-10 w-auto object-contain" />
             </div>
             <div>
-              <p className="text-[10px] text-indigo-600 font-bold uppercase tracking-widest leading-none">Kerala Operations Console</p>
+              <p className="text-[10px] text-brand-900 font-bold uppercase tracking-widest leading-none">{BRANDING.regionLabel} Console</p>
             </div>
           </div>
 
@@ -790,7 +880,7 @@ export default function AdminCommandCenter() {
 
             <button
               type="submit"
-              className="w-full erp-btn erp-btn-primary bg-indigo-600 border-indigo-600 hover:bg-indigo-700 text-white font-bold uppercase tracking-wider py-2.5"
+              className="w-full erp-btn erp-btn-primary bg-brand-900 border-brand-900 hover:bg-brand-800 text-white font-bold uppercase tracking-wider py-2.5"
             >
               Establish Session
             </button>
@@ -811,9 +901,9 @@ export default function AdminCommandCenter() {
           <div className="flex items-center justify-between pb-4 border-b border-gray-800">
             <div className="flex flex-col items-start gap-1">
               <div className="h-8 w-auto flex items-center justify-start">
-                <Image src="/logo.png" alt="Wetta Logo" width={120} height={32} className="h-8 w-auto object-contain invert" priority />
+                <LogoImage width={120} height={32} className="h-8 w-auto object-contain invert" />
               </div>
-              <p className="text-[9px] text-indigo-400 font-bold uppercase tracking-widest leading-none mt-1.5 pl-0.5">Kerala Operations</p>
+              <p className="text-[9px] text-brand-400 font-bold uppercase tracking-widest leading-none mt-1.5 pl-0.5">{BRANDING.regionLabel}</p>
             </div>
             
             <Link
@@ -826,7 +916,7 @@ export default function AdminCommandCenter() {
 
           {/* User Profile Card */}
           <div className="bg-gray-950/50 border border-gray-800 p-3 rounded-none flex items-center gap-2.5">
-            <div className="bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 p-1.5 shrink-0 flex items-center justify-center">
+            <div className="bg-brand-900/20 text-brand-400 border border-brand-500/30 p-1.5 shrink-0 flex items-center justify-center">
               <UserCheck className="h-4.5 w-4.5" />
             </div>
             <div className="min-w-0">
@@ -837,12 +927,12 @@ export default function AdminCommandCenter() {
           </div>
 
           {/* Navigation Tabs */}
-          <nav className="flex flex-row lg:flex-col gap-1 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
+          <nav className="flex flex-row flex-wrap lg:flex-col gap-1">
             <button
               onClick={() => setActiveTab("master")}
               className={`flex items-center gap-2 px-3 py-2 text-xs font-bold uppercase tracking-wider border shrink-0 transition-colors rounded-none ${
                 activeTab === "master"
-                  ? "bg-indigo-600 border-indigo-600 text-white"
+                  ? "bg-brand-900 border-brand-900 text-white"
                   : "bg-transparent border-transparent text-gray-400 hover:bg-gray-800 hover:text-white"
               }`}
             >
@@ -852,7 +942,7 @@ export default function AdminCommandCenter() {
               onClick={() => setActiveTab("manual")}
               className={`flex items-center gap-2 px-3 py-2 text-xs font-bold uppercase tracking-wider border shrink-0 transition-colors rounded-none ${
                 activeTab === "manual"
-                  ? "bg-indigo-600 border-indigo-600 text-white"
+                  ? "bg-brand-900 border-brand-900 text-white"
                   : "bg-transparent border-transparent text-gray-400 hover:bg-gray-800 hover:text-white"
               }`}
             >
@@ -862,7 +952,7 @@ export default function AdminCommandCenter() {
               onClick={() => setActiveTab("sync")}
               className={`flex items-center gap-2 px-3 py-2 text-xs font-bold uppercase tracking-wider border shrink-0 transition-colors rounded-none ${
                 activeTab === "sync"
-                  ? "bg-indigo-600 border-indigo-600 text-white"
+                  ? "bg-brand-900 border-brand-900 text-white"
                   : "bg-transparent border-transparent text-gray-400 hover:bg-gray-800 hover:text-white"
               }`}
             >
@@ -872,7 +962,7 @@ export default function AdminCommandCenter() {
               onClick={() => setActiveTab("settings")}
               className={`flex items-center gap-2 px-3 py-2 text-xs font-bold uppercase tracking-wider border shrink-0 transition-colors rounded-none ${
                 activeTab === "settings"
-                  ? "bg-indigo-600 border-indigo-600 text-white"
+                  ? "bg-brand-900 border-brand-900 text-white"
                   : "bg-transparent border-transparent text-gray-400 hover:bg-gray-800 hover:text-white"
               }`}
             >
@@ -947,7 +1037,39 @@ export default function AdminCommandCenter() {
           {/* ============================================================== */}
           {activeTab === "master" && (
             <div className="space-y-4">
-              
+
+              {/* Inventory Stats Summary */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-white border border-gray-300 shadow-sm p-3 flex items-center gap-2.5 rounded-none">
+                  <div className="bg-gray-100 text-gray-600 p-2 shrink-0"><Package className="h-4 w-4" /></div>
+                  <div className="min-w-0">
+                    <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider leading-none">Total SKUs</div>
+                    <div className="text-lg font-black text-gray-900 num-mono leading-tight mt-0.5">{products.length}</div>
+                  </div>
+                </div>
+                <div className="bg-white border border-gray-300 shadow-sm p-3 flex items-center gap-2.5 rounded-none">
+                  <div className="bg-green-50 text-green-600 p-2 shrink-0"><CheckCircle2 className="h-4 w-4" /></div>
+                  <div className="min-w-0">
+                    <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider leading-none">In Stock</div>
+                    <div className="text-lg font-black text-gray-900 num-mono leading-tight mt-0.5">{inStockCount}</div>
+                  </div>
+                </div>
+                <div className="bg-white border border-gray-300 shadow-sm p-3 flex items-center gap-2.5 rounded-none">
+                  <div className="bg-yellow-50 text-yellow-600 p-2 shrink-0"><AlertCircle className="h-4 w-4" /></div>
+                  <div className="min-w-0">
+                    <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider leading-none">Low Stock</div>
+                    <div className="text-lg font-black text-gray-900 num-mono leading-tight mt-0.5">{lowStockCount}</div>
+                  </div>
+                </div>
+                <div className="bg-white border border-gray-300 shadow-sm p-3 flex items-center gap-2.5 rounded-none">
+                  <div className="bg-red-50 text-red-600 p-2 shrink-0"><XCircle className="h-4 w-4" /></div>
+                  <div className="min-w-0">
+                    <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider leading-none">Out of Stock</div>
+                    <div className="text-lg font-black text-gray-900 num-mono leading-tight mt-0.5">{outOfStockCount}</div>
+                  </div>
+                </div>
+              </div>
+
               {/* Search and Filters */}
               <div className="bg-white p-3 border border-gray-300 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-none">
                 <div className="flex-1 max-w-md">
@@ -966,8 +1088,8 @@ export default function AdminCommandCenter() {
                 </div>
               </div>
 
-              {/* Master Products Table */}
-              <div className="bg-white border border-gray-300 shadow-sm rounded-none overflow-hidden">
+              {/* Master Products Table (desktop/tablet) */}
+              <div className="hidden md:block bg-white border border-gray-300 shadow-sm rounded-none overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="erp-table animate-fade-in">
                     <thead>
@@ -1018,12 +1140,14 @@ export default function AdminCommandCenter() {
                         filteredMasterProducts.map((p) => {
                           const isEditing = editingRow === p.itemCode;
                           return (
-                            <tr key={p.itemCode} className={isEditing ? "bg-indigo-50/40" : ""}>
+                            <tr key={p.itemCode} className={isEditing ? "bg-brand-50/40" : ""}>
                               <td className="num-mono font-bold">{p.itemCode}</td>
                               <td className="w-16 py-1">
                                 {isEditing ? (
-                                  <div className="relative h-8 w-8 bg-gray-100 border border-dashed border-indigo-400 text-gray-400 hover:bg-indigo-50 cursor-pointer flex items-center justify-center">
-                                    {editImage ? (
+                                  <div className="relative h-8 w-8 bg-gray-100 border border-dashed border-brand-400 text-gray-400 hover:bg-brand-50 cursor-pointer flex items-center justify-center">
+                                    {editImageUploading ? (
+                                      <RefreshCw className="h-3.5 w-3.5 animate-spin text-brand-500" />
+                                    ) : editImage ? (
                                       <img src={editImage} alt={p.itemCode} className="h-full w-full object-cover animate-fade-in" />
                                     ) : (
                                       <Plus className="h-4 w-4" />
@@ -1034,12 +1158,7 @@ export default function AdminCommandCenter() {
                                       onChange={async (e) => {
                                         const file = e.target.files?.[0];
                                         if (file) {
-                                          try {
-                                            const compressed = await compressImage(file);
-                                            setEditImage(compressed);
-                                          } catch {
-                                            showToast("error", "Failed to compress image.");
-                                          }
+                                          await handleEditImageSelect(file);
                                         }
                                       }}
                                       className="absolute inset-0 opacity-0 cursor-pointer"
@@ -1054,8 +1173,33 @@ export default function AdminCommandCenter() {
                                   </div>
                                 )}
                               </td>
-                              <td className="font-semibold text-gray-800">{p.description}</td>
-                              <td className="text-[10px] font-bold text-gray-500 uppercase">{p.category}</td>
+                              <td className="font-semibold text-gray-800">
+                                {isEditing ? (
+                                  <input
+                                    type="text"
+                                    value={editDescription}
+                                    onChange={(e) => setEditDescription(e.target.value)}
+                                    className="erp-input w-full p-0.5"
+                                  />
+                                ) : (
+                                  p.description
+                                )}
+                              </td>
+                              <td className="text-[10px] font-bold text-gray-500 uppercase">
+                                {isEditing ? (
+                                  <select
+                                    value={editCategory}
+                                    onChange={(e) => setEditCategory(e.target.value)}
+                                    className="erp-input w-full p-0.5 normal-case"
+                                  >
+                                    {allCategories.map((cat) => (
+                                      <option key={cat} value={cat}>{cat}</option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  p.category
+                                )}
+                              </td>
                               <td className="num-mono text-right text-gray-500">{formatCurrency(p.mrp)}</td>
                               <td className="text-right">
                                 {isEditing ? (
@@ -1067,7 +1211,7 @@ export default function AdminCommandCenter() {
                                     step="0.01"
                                   />
                                 ) : (
-                                  <span className="num-mono font-bold text-indigo-700">
+                                  <span className="num-mono font-bold text-brand-800">
                                     {formatCurrency(p.wholesaleRate)}
                                   </span>
                                 )}
@@ -1092,14 +1236,16 @@ export default function AdminCommandCenter() {
                                   <div className="flex items-center justify-center gap-1">
                                     <button
                                       onClick={() => saveInlineEdit(p.itemCode)}
-                                      className="p-1 bg-green-600 text-white hover:bg-green-700 rounded-none"
+                                      disabled={savingRow || editImageUploading}
+                                      className="p-1 bg-green-600 text-white hover:bg-green-700 rounded-none disabled:opacity-50 disabled:cursor-not-allowed"
                                       title="Save Changes"
                                     >
-                                      <Check className="h-3 w-3" />
+                                      {savingRow ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
                                     </button>
                                     <button
                                       onClick={cancelEditing}
-                                      className="p-1 bg-gray-500 text-white hover:bg-gray-600 rounded-none"
+                                      disabled={savingRow}
+                                      className="p-1 bg-gray-500 text-white hover:bg-gray-600 rounded-none disabled:opacity-50"
                                       title="Cancel"
                                     >
                                       <X className="h-3 w-3" />
@@ -1132,6 +1278,158 @@ export default function AdminCommandCenter() {
                 </div>
               </div>
 
+              {/* Master Products List (mobile) */}
+              <div className="md:hidden space-y-3">
+                {filteredMasterProducts.length === 0 ? (
+                  <div className="bg-white border border-gray-300 shadow-sm p-6 text-center text-sm text-gray-500">
+                    No records found matching search queries.
+                  </div>
+                ) : (
+                  filteredMasterProducts.map((p) => {
+                    const isEditing = editingRow === p.itemCode;
+                    return (
+                      <div
+                        key={p.itemCode}
+                        className={`bg-white border shadow-sm p-3 space-y-2.5 ${isEditing ? "border-brand-400 bg-brand-50/40" : "border-gray-300"}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {isEditing ? (
+                              <div className="relative h-11 w-11 shrink-0 bg-gray-100 border border-dashed border-brand-400 text-gray-400 hover:bg-brand-50 cursor-pointer flex items-center justify-center">
+                                {editImageUploading ? (
+                                  <RefreshCw className="h-4 w-4 animate-spin text-brand-500" />
+                                ) : editImage ? (
+                                  <img src={editImage} alt={p.itemCode} className="h-full w-full object-cover animate-fade-in" />
+                                ) : (
+                                  <Plus className="h-4 w-4" />
+                                )}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      await handleEditImageSelect(file);
+                                    }
+                                  }}
+                                  className="absolute inset-0 opacity-0 cursor-pointer"
+                                  title="Upload image"
+                                />
+                              </div>
+                            ) : p.image ? (
+                              <img src={p.image} alt={p.itemCode} className="h-11 w-11 shrink-0 object-cover border border-gray-200" />
+                            ) : (
+                              <div className="h-11 w-11 shrink-0 bg-gray-100 flex items-center justify-center border border-gray-200 text-gray-400">
+                                <Layers className="h-4 w-4" />
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <div className="num-mono font-bold text-xs text-gray-900">{p.itemCode}</div>
+                              {isEditing ? (
+                                <select
+                                  value={editCategory}
+                                  onChange={(e) => setEditCategory(e.target.value)}
+                                  className="erp-input w-full p-0.5 text-[10px] mt-0.5"
+                                >
+                                  {allCategories.map((cat) => (
+                                    <option key={cat} value={cat}>{cat}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <div className="text-[9px] font-bold text-gray-500 uppercase truncate">{p.category}</div>
+                              )}
+                            </div>
+                          </div>
+                          <StockBadge count={isEditing ? parseInt(editStock, 10) || 0 : p.stockCount} />
+                        </div>
+
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editDescription}
+                            onChange={(e) => setEditDescription(e.target.value)}
+                            className="erp-input w-full text-xs p-1.5"
+                          />
+                        ) : (
+                          <p className="text-xs font-semibold text-gray-800 leading-snug">{p.description}</p>
+                        )}
+
+                        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-100">
+                          <div>
+                            <span className="text-[9px] text-gray-400 font-bold uppercase block">MRP</span>
+                            <span className="num-mono text-xs text-gray-600">{formatCurrency(p.mrp)}</span>
+                          </div>
+                          <div>
+                            <span className="text-[9px] text-gray-400 font-bold uppercase block">Rate</span>
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                value={editRate}
+                                onChange={(e) => setEditRate(e.target.value)}
+                                className="erp-input num-mono text-xs w-full p-0.5"
+                                step="0.01"
+                              />
+                            ) : (
+                              <span className="num-mono text-xs font-bold text-brand-800">{formatCurrency(p.wholesaleRate)}</span>
+                            )}
+                          </div>
+                          <div>
+                            <span className="text-[9px] text-gray-400 font-bold uppercase block">Stock</span>
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                value={editStock}
+                                onChange={(e) => setEditStock(e.target.value)}
+                                className="erp-input num-mono text-xs w-full p-0.5"
+                              />
+                            ) : (
+                              <span className="num-mono text-xs font-semibold">{p.stockCount}</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-gray-100">
+                          {isEditing ? (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => saveInlineEdit(p.itemCode)}
+                                disabled={savingRow || editImageUploading}
+                                className="flex-1 erp-btn bg-green-600 text-white hover:bg-green-700 rounded-none disabled:opacity-50 disabled:cursor-not-allowed text-xs font-bold uppercase py-2"
+                              >
+                                {savingRow ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Save
+                              </button>
+                              <button
+                                onClick={cancelEditing}
+                                disabled={savingRow}
+                                className="flex-1 erp-btn bg-gray-500 text-white hover:bg-gray-600 rounded-none disabled:opacity-50 text-xs font-bold uppercase py-2"
+                              >
+                                <X className="h-3.5 w-3.5" /> Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => startEditing(p)}
+                                className="flex-1 erp-btn erp-btn-secondary text-xs uppercase font-bold py-2"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => deleteProductItem(p.itemCode)}
+                                className="p-2 text-red-600 hover:bg-red-50 border border-gray-300 rounded-none"
+                                title="Delete Product"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
             </div>
           )}
 
@@ -1142,7 +1440,7 @@ export default function AdminCommandCenter() {
             <div className="bg-white border border-gray-300 shadow-sm max-w-2xl mx-auto rounded-none">
               <div className="bg-gray-50 border-b border-gray-300 px-4 py-2.5">
                 <span className="font-bold text-xs uppercase tracking-wider text-gray-700 flex items-center gap-1.5">
-                  <PlusCircle className="h-4 w-4 text-indigo-600" /> New Bath Fittings Product Record
+                  <PlusCircle className="h-4 w-4 text-brand-900" /> New Product Record
                 </span>
               </div>
 
@@ -1174,17 +1472,60 @@ export default function AdminCommandCenter() {
                     <label htmlFor="category" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
                       Category <span className="text-red-500">*</span>
                     </label>
-                    <select
-                      id="category"
-                      name="category"
-                      value={manualForm.category}
-                      onChange={handleFormChange}
-                      className="w-full erp-input"
-                    >
-                      <option value="Health Faucets">Health Faucets</option>
-                      <option value="Showers">Showers</option>
-                      <option value="Accessories">Accessories</option>
-                    </select>
+                    {isCreatingManualCategory ? (
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="text"
+                          value={newManualCategoryName}
+                          onChange={(e) => setNewManualCategoryName(e.target.value)}
+                          placeholder="New category name..."
+                          className="w-full erp-input"
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const trimmed = newManualCategoryName.trim();
+                            if (!trimmed) {
+                              showToast("error", "Category name cannot be empty.");
+                              return;
+                            }
+                            setManualForm((prev) => ({ ...prev, category: trimmed }));
+                            setIsCreatingManualCategory(false);
+                            setNewManualCategoryName("");
+                          }}
+                          className="erp-btn erp-btn-primary bg-brand-900 border-brand-900 hover:bg-brand-800 text-white font-bold shrink-0 px-3"
+                        >
+                          Add
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsCreatingManualCategory(false)}
+                          className="text-xs font-semibold text-gray-500 hover:text-gray-800 px-1 shrink-0"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <select
+                        id="category"
+                        name="category"
+                        value={manualForm.category}
+                        onChange={(e) => {
+                          if (e.target.value === "__NEW__") {
+                            setIsCreatingManualCategory(true);
+                          } else {
+                            handleFormChange(e);
+                          }
+                        }}
+                        className="w-full erp-input"
+                      >
+                        {allCategories.map((cat) => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                        <option value="__NEW__" className="text-brand-800 font-bold">+ Create New Category...</option>
+                      </select>
+                    )}
                   </div>
                 </div>
 
@@ -1199,7 +1540,7 @@ export default function AdminCommandCenter() {
                     name="description"
                     value={manualForm.description}
                     onChange={handleFormChange}
-                    placeholder="E.G., Chrome Health Faucet with 1.5m Hose"
+                    placeholder="E.G., Wireless Bluetooth Speaker 20W"
                     className={`w-full erp-input ${
                       manualErrors.description ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""
                     }`}
@@ -1281,7 +1622,9 @@ export default function AdminCommandCenter() {
                   </label>
                   <div className="flex items-center gap-4 border border-gray-300 p-3 bg-gray-50">
                     <div className="h-16 w-16 bg-white border border-gray-300 flex items-center justify-center text-gray-400 shrink-0">
-                      {manualForm.image ? (
+                      {manualImageUploading ? (
+                        <RefreshCw className="h-5 w-5 animate-spin text-brand-500" />
+                      ) : manualForm.image ? (
                         <img src={manualForm.image} alt="Preview" className="h-full w-full object-cover animate-fade-in" />
                       ) : (
                         <Layers className="h-8 w-8" />
@@ -1295,18 +1638,13 @@ export default function AdminCommandCenter() {
                         onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (file) {
-                            try {
-                              const compressed = await compressImage(file);
-                              setManualForm(prev => ({ ...prev, image: compressed }));
-                            } catch {
-                              showToast("error", "Failed to compress image.");
-                            }
+                            await handleManualImageSelect(file);
                           }
                         }}
                         className="text-xs text-gray-500 file:mr-4 file:py-1 file:px-3 file:border file:border-gray-300 file:bg-gray-50 file:hover:bg-gray-100 file:text-xs file:font-bold file:uppercase file:rounded-none file:cursor-pointer w-full"
                       />
                       <p className="text-[10px] text-gray-400 truncate">
-                        Images are compressed client-side to fit within storage.
+                        Images are compressed client-side, then uploaded to R2 storage.
                       </p>
                     </div>
                     {manualForm.image && (
@@ -1329,10 +1667,11 @@ export default function AdminCommandCenter() {
                       setManualForm({
                         itemCode: "",
                         description: "",
-                        category: "Health Faucets",
+                        category: BRANDING.defaultCategories[0],
                         mrp: "",
                         wholesaleRate: "",
                         stockCount: "",
+                        image: "",
                       });
                       setManualErrors({});
                     }}
@@ -1342,9 +1681,16 @@ export default function AdminCommandCenter() {
                   </button>
                   <button
                     type="submit"
-                    className="erp-btn erp-btn-primary bg-indigo-600 border-indigo-600 hover:bg-indigo-700 text-white font-bold"
+                    disabled={submittingManual || manualImageUploading}
+                    className="erp-btn erp-btn-primary bg-brand-900 border-brand-900 hover:bg-brand-800 text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Add Product Record
+                    {submittingManual ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin" /> Adding...
+                      </>
+                    ) : (
+                      "Add Product Record"
+                    )}
                   </button>
                 </div>
 
@@ -1362,7 +1708,7 @@ export default function AdminCommandCenter() {
               <div className="bg-white border border-gray-300 shadow-sm rounded-none animate-fade-in">
                 <div className="bg-gray-50 border-b border-gray-300 px-4 py-2.5">
                   <span className="font-bold text-xs uppercase tracking-wider text-gray-700 flex items-center gap-1.5">
-                    <Settings className="h-4 w-4 text-indigo-600" /> WhatsApp Contact Configuration
+                    <Settings className="h-4 w-4 text-brand-900" /> WhatsApp Contact Configuration
                   </span>
                 </div>
                 <form onSubmit={handleSaveSettings} className="p-4 md:p-6 space-y-4 font-sans text-sm">
@@ -1385,7 +1731,7 @@ export default function AdminCommandCenter() {
                   <div className="pt-4 flex justify-end border-t border-gray-200">
                     <button
                       type="submit"
-                      className="erp-btn erp-btn-primary bg-indigo-600 border-indigo-600 hover:bg-indigo-700 text-white font-bold"
+                      className="erp-btn erp-btn-primary bg-brand-900 border-brand-900 hover:bg-brand-800 text-white font-bold"
                     >
                       Save Settings
                     </button>
@@ -1397,7 +1743,7 @@ export default function AdminCommandCenter() {
               <div className="bg-white border border-gray-300 shadow-sm rounded-none animate-fade-in">
                 <div className="bg-gray-50 border-b border-gray-300 px-4 py-2.5">
                   <span className="font-bold text-xs uppercase tracking-wider text-gray-700 flex items-center gap-1.5">
-                    <Shield className="h-4 w-4 text-indigo-600" /> Administrative Security Settings
+                    <Shield className="h-4 w-4 text-brand-900" /> Administrative Security Settings
                   </span>
                 </div>
                 <form onSubmit={handleUpdateCredentials} className="p-4 md:p-6 space-y-4 font-sans text-sm">
@@ -1468,7 +1814,7 @@ export default function AdminCommandCenter() {
                   <div className="pt-4 flex justify-end border-t border-gray-200">
                     <button
                       type="submit"
-                      className="erp-btn erp-btn-primary bg-indigo-600 border-indigo-600 hover:bg-indigo-700 text-white font-bold"
+                      className="erp-btn erp-btn-primary bg-brand-900 border-brand-900 hover:bg-brand-800 text-white font-bold"
                     >
                       Update Credentials
                     </button>
@@ -1497,7 +1843,7 @@ export default function AdminCommandCenter() {
                   onDragLeave={handleDrag}
                   onDrop={handleDrop}
                   className={`border-2 border-dashed p-8 text-center flex flex-col items-center justify-center cursor-pointer transition-colors ${
-                    dragActive ? "border-indigo-600 bg-indigo-50/40" : "border-gray-300 bg-gray-50 hover:bg-gray-100/50"
+                    dragActive ? "border-brand-900 bg-brand-50/40" : "border-gray-300 bg-gray-50 hover:bg-gray-100/50"
                   }`}
                   onClick={() => fileInputRef.current?.click()}
                 >
@@ -1544,7 +1890,7 @@ export default function AdminCommandCenter() {
                       <button
                         onClick={() => setShowSyncConfirm(true)}
                         disabled={validRowsCount === 0}
-                        className="erp-btn erp-btn-primary bg-indigo-600 border-indigo-600 hover:bg-indigo-700 text-white font-bold py-1 text-xs disabled:opacity-50"
+                        className="erp-btn erp-btn-primary bg-brand-900 border-brand-900 hover:bg-brand-800 text-white font-bold py-1 text-xs disabled:opacity-50"
                       >
                         Commit Sync ({validRowsCount} Rows)
                       </button>
@@ -1593,7 +1939,7 @@ export default function AdminCommandCenter() {
                             value={newBulkCategoryName}
                             onChange={(e) => setNewBulkCategoryName(e.target.value)}
                             placeholder="New category name..."
-                            className="text-xs border border-gray-300 px-2.5 py-1.5 rounded-none outline-none focus:border-indigo-600 bg-white"
+                            className="text-xs border border-gray-300 px-2.5 py-1.5 rounded-none outline-none focus:border-brand-900 bg-white"
                           />
                           <button
                             onClick={() => {
@@ -1606,7 +1952,7 @@ export default function AdminCommandCenter() {
                               setIsCreatingBulkCategory(false);
                               setNewBulkCategoryName("");
                             }}
-                            className="erp-btn erp-btn-primary py-1.5 px-3 text-xs bg-indigo-600 border-indigo-600 hover:bg-indigo-700 text-white font-bold"
+                            className="erp-btn erp-btn-primary py-1.5 px-3 text-xs bg-brand-900 border-brand-900 hover:bg-brand-800 text-white font-bold"
                           >
                             Create & Apply
                           </button>
@@ -1628,12 +1974,12 @@ export default function AdminCommandCenter() {
                                 setBulkCategory(e.target.value);
                               }
                             }}
-                            className="text-xs bg-white border border-gray-300 rounded-none px-2.5 py-1.5 text-gray-800 outline-none focus:border-indigo-600"
+                            className="text-xs bg-white border border-gray-300 rounded-none px-2.5 py-1.5 text-gray-800 outline-none focus:border-brand-900"
                           >
                             {allCategories.map((cat) => (
                               <option key={cat} value={cat}>{cat}</option>
                             ))}
-                            <option value="__NEW__" className="text-indigo-600 font-bold">+ Create New Category...</option>
+                            <option value="__NEW__" className="text-brand-900 font-bold">+ Create New Category...</option>
                           </select>
                           
                           <button
@@ -1642,7 +1988,7 @@ export default function AdminCommandCenter() {
                             className={`erp-btn py-1.5 px-3 text-xs font-bold uppercase transition-all ${
                               selectedRows.length === 0
                                 ? "bg-gray-200 border-gray-200 text-gray-400 cursor-not-allowed"
-                                : "bg-indigo-600 border-indigo-600 hover:bg-indigo-700 text-white"
+                                : "bg-brand-900 border-brand-900 hover:bg-brand-800 text-white"
                             }`}
                           >
                             Apply to Selected
@@ -1662,7 +2008,7 @@ export default function AdminCommandCenter() {
                               type="checkbox"
                               checked={parsedRows.length > 0 && selectedRows.length === parsedRows.length}
                               onChange={(e) => handleSelectAll(e.target.checked)}
-                              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 cursor-pointer"
+                              className="rounded border-gray-300 text-brand-900 focus:ring-brand-900 cursor-pointer"
                             />
                           </th>
                           <th className="w-24">Item Code</th>
@@ -1708,13 +2054,13 @@ export default function AdminCommandCenter() {
                           }
 
                           return (
-                            <tr key={idx} className={`${row.status === "Malformed" ? "bg-red-50/20" : ""} ${isSelected ? "bg-indigo-50/30" : ""}`}>
+                            <tr key={idx} className={`${row.status === "Malformed" ? "bg-red-50/20" : ""} ${isSelected ? "bg-brand-50/30" : ""}`}>
                               <td className="text-center">
                                 <input
                                   type="checkbox"
                                   checked={isSelected}
                                   onChange={() => handleSelectRow(idx)}
-                                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 cursor-pointer"
+                                  className="rounded border-gray-300 text-brand-900 focus:ring-brand-900 cursor-pointer"
                                 />
                               </td>
                               <td className="num-mono font-bold">{row.itemCode}</td>
@@ -1723,7 +2069,7 @@ export default function AdminCommandCenter() {
                               {/* Inline Category Select Dropdown */}
                               <td>
                                 <select
-                                  value={row.category || "Table Top"}
+                                  value={row.category || BRANDING.defaultCategories[BRANDING.defaultCategories.length - 1]}
                                   onChange={(e) => {
                                     const val = e.target.value;
                                     setParsedRows((prev) =>
@@ -1732,7 +2078,7 @@ export default function AdminCommandCenter() {
                                       )
                                     );
                                   }}
-                                  className="text-xs bg-white border border-gray-300 rounded px-1.5 py-1 text-gray-800 outline-none focus:border-indigo-650"
+                                  className="text-xs bg-white border border-gray-300 rounded px-1.5 py-1 text-gray-800 outline-none focus:border-brand-700"
                                 >
                                   {allCategories.map((cat) => (
                                     <option key={cat} value={cat}>{cat}</option>
@@ -1757,7 +2103,7 @@ export default function AdminCommandCenter() {
                                   </span>
                                 )}
                                 {row.status === "Unrecognized" && (
-                                  <span className="text-indigo-650 flex items-center gap-1 font-bold">
+                                  <span className="text-brand-700 flex items-center gap-1 font-bold">
                                     <CheckCircle2 className="h-3 w-3 shrink-0" /> Will add as new product in &quot;{row.category}&quot;.
                                   </span>
                                 )}
@@ -1791,7 +2137,7 @@ export default function AdminCommandCenter() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white border border-gray-300 max-w-sm w-full p-5 shadow-2xl rounded-none flex flex-col gap-4 text-gray-800 animate-in zoom-in-95 duration-200">
             <div className="flex items-center gap-2 border-b pb-3 shrink-0">
-              <Database className="h-5 w-5 text-indigo-600" />
+              <Database className="h-5 w-5 text-brand-900" />
               <h3 className="font-extrabold text-sm uppercase tracking-wider text-gray-900">
                 Confirm Commit Sync
               </h3>
@@ -1819,15 +2165,23 @@ export default function AdminCommandCenter() {
             <div className="flex gap-2 pt-2">
               <button
                 onClick={() => setShowSyncConfirm(false)}
-                className="flex-1 erp-btn erp-btn-secondary text-xs uppercase"
+                disabled={isSyncing}
+                className="flex-1 erp-btn erp-btn-secondary text-xs uppercase disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCommitSync}
-                className="flex-1 erp-btn erp-btn-primary bg-indigo-600 border-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase"
+                disabled={isSyncing}
+                className="flex-1 erp-btn erp-btn-primary bg-brand-900 border-brand-900 hover:bg-brand-800 text-white font-bold text-xs uppercase disabled:opacity-50 flex items-center justify-center gap-1.5"
               >
-                Commit Changes
+                {isSyncing ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Syncing...
+                  </>
+                ) : (
+                  "Commit Changes"
+                )}
               </button>
             </div>
           </div>
