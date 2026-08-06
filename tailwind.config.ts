@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import animate from "tailwindcss-animate";
 
 // Generic default brand scale (safe to publish). To reproduce a specific
 // deployment's real brand color exactly, set the matching BRAND_<shade> env
@@ -32,6 +33,9 @@ const config: Config = {
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
+  future: {
+    hoverOnlyWhenSupported: true,
+  },
   theme: {
     extend: {
       colors: {
@@ -39,8 +43,12 @@ const config: Config = {
         foreground: "var(--foreground)",
         brand,
       },
+      transitionTimingFunction: {
+        "out-ui": "cubic-bezier(0.23, 1, 0.32, 1)",
+        "in-out-ui": "cubic-bezier(0.77, 0, 0.175, 1)",
+      },
     },
   },
-  plugins: [],
+  plugins: [animate],
 };
 export default config;

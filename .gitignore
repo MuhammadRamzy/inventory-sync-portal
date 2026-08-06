@@ -65,3 +65,9 @@ cloudflare-env.d.ts
 # as manifest-demo.json / manifest-admin-demo.json (see .env.example)
 /public/manifest.json
 /public/manifest-admin.json
+
+# real favicon — kept local-only (derived from the real brand icon above).
+# Next.js's app/favicon.ico is a fixed filename with no env-driven override,
+# so unlike logo/icon there's no generic committed alternative; a fresh
+# GitHub clone simply has no favicon until you add your own.
+/app/favicon.ico

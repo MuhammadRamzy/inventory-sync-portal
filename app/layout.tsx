@@ -16,19 +16,23 @@ const geistMono = localFont({
   weight: "100 900",
 });
 
+// Generic fallback only — the public landing page ("/") sets its own full
+// SEO metadata, and /catalog + /admin each override this with their own PWA
+// manifest via their own layout.tsx. This root export just covers the gap
+// if a route segment forgets to set its own <title>.
 export const metadata: Metadata = {
   title: `${BRANDING.companyName} — B2B Catalog & Inventory`,
   description: `Sales catalog and admin inventory console for ${BRANDING.companyName}`,
-  manifest: process.env.NEXT_PUBLIC_MANIFEST_PATH || "/manifest-demo.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: `${BRANDING.companyName} Sales`,
+  // app/favicon.ico (file-convention) is auto-detected by Next for the
+  // regular <link rel="icon">; this just adds the iOS home-screen icon,
+  // which Safari doesn't reliably pick up from the PWA manifest alone.
+  icons: {
+    apple: BRANDING.iconSrc,
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0f172a",
+  themeColor: BRANDING.themeColor,
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,

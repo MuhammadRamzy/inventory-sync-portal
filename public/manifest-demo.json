@@ -1,9 +1,9 @@
 {
-  "name": "Acme Distributors — Sales Catalog",
+  "name": "Acme Distributors \u2014 Sales Catalog",
   "short_name": "Acme Sales",
   "description": "B2B digital brochure and quotation builder",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "/catalog",
+  "scope": "/catalog",
   "display": "standalone",
   "background_color": "#f8fafc",
   "theme_color": "#1f2c40",

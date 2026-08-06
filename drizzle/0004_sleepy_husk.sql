@@ -1,0 +1,1 @@
+ALTER TABLE `products` ADD `poster_image_url` text;

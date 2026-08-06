@@ -8,6 +8,41 @@
       "when": 1785180080773,
       "tag": "0000_dusty_expediter",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1785233078222,
+      "tag": "0001_outstanding_joystick",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1785235445665,
+      "tag": "0002_right_pixie",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1785293408680,
+      "tag": "0003_clammy_outlaw_kid",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1785296102690,
+      "tag": "0004_sleepy_husk",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1785997909788,
+      "tag": "0005_wet_blue_shield",
+      "breakpoints": true
     }
   ]
 }

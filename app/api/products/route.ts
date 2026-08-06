@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { listProducts, createProduct, updateProduct, deleteProduct } from "@/lib/server/products";
+import { isAdminRequest, isCatalogRequestAuthorized } from "@/lib/server/auth";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    if (!(await isCatalogRequestAuthorized(request))) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const data = await listProducts();
     return NextResponse.json(data);
   } catch (error) {
@@ -13,6 +17,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    if (!(await isAdminRequest(request))) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const body: any = await request.json();
 
     if (!body.itemCode || !String(body.itemCode).trim()) {
@@ -26,14 +33,10 @@ export async function POST(request: Request) {
     }
 
     const mrp = Number(body.mrp);
-    const wholesaleRate = Number(body.wholesaleRate);
     const stockCount = Number(body.stockCount);
 
     if (!Number.isFinite(mrp) || mrp <= 0) {
       return NextResponse.json({ error: "mrp must be a positive number." }, { status: 400 });
-    }
-    if (!Number.isFinite(wholesaleRate) || wholesaleRate <= 0) {
-      return NextResponse.json({ error: "wholesaleRate must be a positive number." }, { status: 400 });
     }
     if (!Number.isInteger(stockCount) || stockCount < 0) {
       return NextResponse.json({ error: "stockCount must be a non-negative integer." }, { status: 400 });
@@ -44,9 +47,9 @@ export async function POST(request: Request) {
       description: String(body.description),
       category: String(body.category),
       mrp,
-      wholesaleRate,
       stockCount,
       image: body.image ? String(body.image) : undefined,
+      posterImage: body.posterImage ? String(body.posterImage) : undefined,
     });
 
     if (!result.success) {
@@ -61,6 +64,9 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
+    if (!(await isAdminRequest(request))) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const body: any = await request.json();
     const { itemCode, ...updates } = body;
 
@@ -74,10 +80,10 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "stockCount must be a non-negative integer." }, { status: 400 });
     }
     if (
-      updates.wholesaleRate !== undefined &&
-      (!Number.isFinite(updates.wholesaleRate) || updates.wholesaleRate <= 0)
+      updates.mrp !== undefined &&
+      (!Number.isFinite(updates.mrp) || updates.mrp <= 0)
     ) {
-      return NextResponse.json({ error: "wholesaleRate must be a positive number." }, { status: 400 });
+      return NextResponse.json({ error: "mrp must be a positive number." }, { status: 400 });
     }
 
     const result = await updateProduct(itemCode, updates);
@@ -93,6 +99,9 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    if (!(await isAdminRequest(request))) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const { searchParams } = new URL(request.url);
     const itemCode = searchParams.get("itemCode");
     if (!itemCode) {

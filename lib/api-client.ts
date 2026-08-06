@@ -1,4 +1,4 @@
-import { AppSettings, Product } from "./types";
+import { AppSettings, CategoryThresholdMap, Product } from "./types";
 import { dataUrlToBlob } from "./utils";
 
 async function parseJsonOrThrow(res: Response): Promise<any> {
@@ -19,9 +19,9 @@ export async function createProduct(input: {
   description: string;
   category: string;
   mrp: number;
-  wholesaleRate: number;
   stockCount: number;
   image?: string;
+  posterImage?: string;
 }): Promise<{ success: boolean; error?: string }> {
   try {
     const res = await fetch("/api/products", {
@@ -42,9 +42,9 @@ export async function updateProduct(
     description: string;
     category: string;
     mrp: number;
-    wholesaleRate: number;
     stockCount: number;
     image: string;
+    posterImage: string;
   }>
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -97,6 +97,100 @@ export async function saveSettings(settings: AppSettings): Promise<{ success: bo
     return { success: true };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Failed to save settings." };
+  }
+}
+
+export async function verifyCatalogPassword(password: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch("/api/catalog-auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+    await parseJsonOrThrow(res);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Incorrect password." };
+  }
+}
+
+export async function checkAdminSession(): Promise<{ authenticated: boolean; username?: string }> {
+  const res = await fetch("/api/admin-auth");
+  return parseJsonOrThrow(res);
+}
+
+export async function adminLogin(username: string, password: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch("/api/admin-auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    await parseJsonOrThrow(res);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Invalid Operator ID or Password credentials." };
+  }
+}
+
+export async function adminLogout(): Promise<void> {
+  await fetch("/api/admin-auth", { method: "DELETE" });
+}
+
+export async function updateAdminCredentials(
+  currentPassword: string,
+  newUsername: string,
+  newPassword: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch("/api/admin-auth", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentPassword, newUsername, newPassword }),
+    });
+    await parseJsonOrThrow(res);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Failed to update credentials." };
+  }
+}
+
+export async function fetchCategoryThresholds(): Promise<CategoryThresholdMap> {
+  const res = await fetch("/api/settings/category-thresholds");
+  const data = await parseJsonOrThrow(res);
+  return data.categoryThresholds || {};
+}
+
+// Replaces the full category-threshold map; pass {} to clear every override
+// and fall every category back to the global thresholds.
+export async function saveCategoryThresholds(
+  categoryThresholds: CategoryThresholdMap
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch("/api/settings/category-thresholds", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ categoryThresholds }),
+    });
+    await parseJsonOrThrow(res);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Failed to save category thresholds." };
+  }
+}
+
+// Pass an empty/blank password to disable the catalog gate entirely.
+export async function setCatalogPassword(password: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch("/api/settings/catalog-password", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+    await parseJsonOrThrow(res);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Failed to update catalog password." };
   }
 }
 

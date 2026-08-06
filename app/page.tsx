@@ -1,977 +1,619 @@
-"use client";
-
-import React, { useState, useEffect, useRef } from "react";
+import type { Metadata } from "next";
+import Link from "next/link";
 import {
-  Layers,
-  RefreshCw,
-  ShoppingCart,
-  Plus,
-  Minus,
-  Send,
-  Trash2,
-  X,
-  MessageSquare,
-  Share2,
-  Search,
-  ShoppingBag,
-  User,
+  Droplets,
+  Truck,
+  Users,
+  ShieldCheck,
   Phone,
-  FileText,
-  Copy,
-  Check,
-  ChevronRight,
-  ZoomIn
+  Mail,
+  MapPin,
+  ArrowRight,
+  MessageCircle,
+  Package,
+  Layers,
+  Sparkles,
+  ChevronDown,
+  CalendarCheck,
+  Boxes,
+  Grid3x3,
+  Settings,
+  BadgeCheck,
+  ShoppingBag,
+  Link2,
+  Waves,
 } from "lucide-react";
-import { Product } from "@/lib/types";
-import { fetchProducts, fetchSettings } from "@/lib/api-client";
-import { formatCurrency } from "@/lib/utils";
 import { BRANDING } from "@/lib/branding";
-import StockBadge from "@/components/StockBadge";
-import EmptyState from "@/components/EmptyState";
 import LogoImage from "@/components/LogoImage";
+import LandingNav from "@/components/LandingNav";
+import ScrollReveal from "@/components/ScrollReveal";
 
-export default function SalesBrochure() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [isImageZoomed, setIsImageZoomed] = useState(false);
+export const metadata: Metadata = {
+  metadataBase: new URL(BRANDING.siteUrl),
+  title: `${BRANDING.companyName} — Premium Bath Fittings & Sanitary Ware Wholesaler`,
+  description: BRANDING.metaDescription,
+  keywords: BRANDING.metaKeywords,
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: `${BRANDING.companyName} — Premium Bath Fittings & Sanitary Ware`,
+    description: BRANDING.metaDescription,
+    url: BRANDING.siteUrl,
+    siteName: BRANDING.companyName,
+    images: [{ url: BRANDING.logoSrc }],
+    locale: "en_IN",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: `${BRANDING.companyName} — Premium Bath Fittings & Sanitary Ware`,
+    description: BRANDING.metaDescription,
+    images: [BRANDING.logoSrc],
+  },
+};
 
-  // Cart Local States
-  const [cart, setCart] = useState<{ product: Product; quantity: number }[]>([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
-  const [clientName, setClientName] = useState("");
-  const [clientPhone, setClientPhone] = useState("");
-  const [clientNote, setClientNote] = useState("");
-  const [adminWhatsapp, setAdminWhatsapp] = useState("");
-  const [copied, setCopied] = useState(false);
+// Podium order (display order, not warranty length): runner-up, headline
+// tier (center, elevated), then entry tier — gold/silver/bronze accents
+// make the hierarchy read at a glance instead of three identical boxes.
+const WARRANTIES = [
+  {
+    icon: Settings,
+    years: "2",
+    unit: "Years",
+    label: "Spindle & Head",
+    tier: "silver",
+    ring: "ring-slate-300",
+    gradient: "from-slate-400 to-slate-600",
+    glow: "bg-slate-300/40",
+  },
+  {
+    icon: ShieldCheck,
+    years: "10",
+    unit: "Years",
+    label: "CP Fittings Body",
+    tier: "gold",
+    ribbon: "Longest Coverage",
+    ring: "ring-amber-300",
+    gradient: "from-amber-400 to-amber-700",
+    glow: "bg-amber-300/50",
+  },
+  {
+    icon: BadgeCheck,
+    years: "1",
+    unit: "Year",
+    label: "Accessories",
+    tier: "bronze",
+    ring: "ring-orange-300",
+    gradient: "from-orange-400 to-orange-700",
+    glow: "bg-orange-300/40",
+  },
+];
 
-  // Swipe to Send States (Mobile only)
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const [isSwiped, setIsSwiped] = useState(false);
-  const startXRef = useRef(0);
-  // Mirrors swipeOffset synchronously so handleTouchEnd never reads a stale
-  // value if touchmove + touchend fire before React re-renders in between.
-  const swipeOffsetRef = useRef(0);
-  const trackRef = useRef<HTMLDivElement>(null);
+// Best-effort icon per product category — falls back to a generic droplet
+// for anything not explicitly matched, so this never breaks for a
+// deployment with different category names.
+const CATEGORY_ICON_MAP: Record<string, typeof Droplets> = {
+  concealed: Layers,
+  "health faucet": Droplets,
+  coupling: Link2,
+  shower: Waves,
+  "soap dish": Package,
+  "towel rod": Package,
+  "grab bar": ShieldCheck,
+  accessories: Sparkles,
+  jally: Grid3x3,
+  sink: Droplets,
+};
 
-  // Load products initially
-  const loadProducts = async () => {
-    setLoading(true);
-    try {
-      const [data, settings] = await Promise.all([fetchProducts(), fetchSettings()]);
-      setProducts(data);
-      setAdminWhatsapp(settings.whatsappNumber);
-    } catch (error) {
-      console.error("Failed to load catalog:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+function getCategoryIcon(name: string) {
+  const key = name.trim().toLowerCase();
+  if (CATEGORY_ICON_MAP[key]) return CATEGORY_ICON_MAP[key];
+  const match = Object.keys(CATEGORY_ICON_MAP).find((k) => key.includes(k));
+  return match ? CATEGORY_ICON_MAP[match] : Droplets;
+}
 
-  useEffect(() => {
-    loadProducts();
-  }, []);
+const SERVICES = [
+  {
+    icon: Package,
+    title: "Wholesale Distribution",
+    desc: `Bulk pricing and dedicated B2B support for retailers and contractors sourcing from ${BRANDING.companyName}.`,
+  },
+  {
+    icon: Truck,
+    title: "Reliable Delivery",
+    desc: BRANDING.serviceAreaText || "Dependable dispatch and delivery to your store or project site.",
+  },
+  {
+    icon: Users,
+    title: "Dedicated Sales Support",
+    desc: "A knowledgeable team ready to help you find the right products and build a custom quotation fast.",
+  },
+];
 
-  // Lock background scroll while the cart drawer or product modal is open.
-  // The root scrolling element varies by browser, so lock both <html> and <body>.
-  useEffect(() => {
-    const shouldLock = isCartOpen || !!selectedProduct;
-    document.documentElement.style.overflow = shouldLock ? "hidden" : "";
-    document.body.style.overflow = shouldLock ? "hidden" : "";
-    return () => {
-      document.documentElement.style.overflow = "";
-      document.body.style.overflow = "";
-    };
-  }, [isCartOpen, selectedProduct]);
+export default function LandingPage() {
+  const whatsappDigits = BRANDING.contactPhone.replace(/\D/g, "");
+  const waHref = whatsappDigits
+    ? `https://wa.me/${whatsappDigits.startsWith("91") ? whatsappDigits : `91${whatsappDigits}`}?text=${encodeURIComponent(
+        `Hi, I'd like to know more about your products.`
+      )}`
+    : null;
+  const telHref = whatsappDigits ? `tel:+${whatsappDigits.startsWith("91") ? whatsappDigits : `91${whatsappDigits}`}` : null;
+  const mapsEmbedSrc = BRANDING.mapEmbedCid
+    ? `https://www.google.com/maps?cid=${BRANDING.mapEmbedCid}&output=embed`
+    : BRANDING.addressLine
+      ? `https://www.google.com/maps?q=${encodeURIComponent(`${BRANDING.companyName}, ${BRANDING.addressLine}`)}&output=embed`
+      : null;
+  const yearsInBusiness = BRANDING.foundedYear ? new Date().getFullYear() - BRANDING.foundedYear : null;
 
-  // Filtered categories derived from products list
-  const categories = Array.from(new Set(products.map((p) => p.category)));
+  const stats = [
+    yearsInBusiness && {
+      icon: CalendarCheck,
+      value: `${yearsInBusiness}+`,
+      label: "Years of Trust",
+    },
+    BRANDING.productSeries.length > 0 && {
+      icon: Boxes,
+      value: `${BRANDING.productSeries.length}+`,
+      label: "Collections",
+    },
+    BRANDING.productTypes.length > 0 && {
+      icon: Grid3x3,
+      value: `${BRANDING.productTypes.length}+`,
+      label: "Product Categories",
+    },
+    BRANDING.serviceAreaText && {
+      icon: MapPin,
+      value: "Kerala",
+      label: "Wide Delivery",
+    },
+  ].filter(Boolean) as { icon: typeof CalendarCheck; value: string; label: string }[];
 
-  // Filtered products list
-  const filteredProducts = products.filter((product) => {
-    const matchesSearch =
-      product.itemCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory =
-      selectedCategory === null || product.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
-
-  // Cart operations
-  const handleAddToCart = (product: Product) => {
-    setCart((prev) => {
-      const existing = prev.find((item) => item.product.itemCode === product.itemCode);
-      if (existing) {
-        return prev.map((item) =>
-          item.product.itemCode === product.itemCode
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-      return [...prev, { product, quantity: 1 }];
-    });
-  };
-
-  const handleUpdateCartQuantity = (itemCode: string, qty: number) => {
-    if (qty <= 0) {
-      handleRemoveFromCart(itemCode);
-      return;
-    }
-    setCart((prev) =>
-      prev.map((item) =>
-        item.product.itemCode === itemCode ? { ...item, quantity: qty } : item
-      )
-    );
-  };
-
-  const handleRemoveFromCart = (itemCode: string) => {
-    setCart((prev) => prev.filter((item) => item.product.itemCode !== itemCode));
-  };
-
-  const generateQuotationText = () => {
-    const now = new Date();
-    const dateStr = now.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-    const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
-    const quoteRef = `WQ-${now.getTime().toString().slice(-6)}`;
-
-    const totalVal = cart.reduce((acc, item) => acc + item.product.mrp * item.quantity, 0);
-    const totalQty = cart.reduce((acc, item) => acc + item.quantity, 0);
-    const sep = "─".repeat(32);
-
-    let msg = `*${BRANDING.companyName.toUpperCase()}*\n`;
-    msg += `_Sales Quotation • Ref: ${quoteRef}_\n`;
-    msg += `${sep}\n\n`;
-    msg += `👤 *CUSTOMER DETAILS*\n`;
-    msg += `• *Name:* ${clientName.trim() || "Valued Customer"}\n`;
-    if (clientPhone.trim()) {
-      msg += `• *Phone:* ${clientPhone.trim()}\n`;
-    }
-    msg += `• *Date:* ${dateStr}, ${timeStr}\n`;
-    if (clientNote.trim()) {
-      msg += `• *Notes/Remarks:* ${clientNote.trim()}\n`;
-    }
-    msg += `\n🛒 *ITEMS IN QUOTATION (${cart.length})*\n`;
-    msg += `${sep}\n`;
-
-    cart.forEach((item, idx) => {
-      const numEmoji = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟"][idx] || `*${idx + 1}.*`;
-      msg += `${numEmoji} *[${item.product.itemCode}]* ${item.product.description}\n`;
-      msg += `   Qty: *${item.quantity}* pcs  ×  MRP: *${formatCurrency(item.product.mrp)}*  =  *${formatCurrency(item.product.mrp * item.quantity)}*\n\n`;
-    });
-
-    msg += `${sep}\n\n`;
-    msg += `💰 *SUMMARY*\n`;
-    msg += `• Total SKUs: *${cart.length}*\n`;
-    msg += `• Total Quantity: *${totalQty} pcs*\n`;
-    msg += `• *Grand Total: ${formatCurrency(totalVal)}*\n\n`;
-    msg += `_Prices shown are suggested MRP and subject to confirmation. Generated via ${BRANDING.companyName} Portal._`;
-    return msg;
-  };
-
-  const handleCopyQuoteToClipboard = () => {
-    const text = generateQuotationText();
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
-
-  const handleSendQuotation = (target: "admin" | "client" | "custom") => {
-    let phone = "";
-    if (target === "admin") {
-      if (!adminWhatsapp) {
-        alert("Admin WhatsApp number isn't configured or hasn't loaded yet. Please refresh and try again.");
-        return;
-      }
-      phone = adminWhatsapp;
-    } else if (target === "client") {
-      phone = clientPhone.replace(/[^0-9]/g, "");
-    } else if (target === "custom") {
-      const customNum = prompt("Enter custom WhatsApp number (with country code, e.g. 910000000000):");
-      if (!customNum) return;
-      phone = customNum.replace(/[^0-9]/g, "");
-    }
-
-    if (!phone || phone.length < 10) {
-      alert("Please enter a valid WhatsApp phone number (with country code).");
-      return;
-    }
-
-    const msg = generateQuotationText();
-    const encodedMsg = encodeURIComponent(msg);
-    const waUrl = `https://api.whatsapp.com/send?phone=${phone}&text=${encodedMsg}`;
-    window.open(waUrl, "_blank");
-  };
-
-  const getProductInitials = (itemCode: string, description: string) => {
-    if (itemCode) {
-      return itemCode.substring(0, 3).toUpperCase();
-    }
-    return description.substring(0, 2).toUpperCase();
-  };
-
-  // Mobile Touch Swiper Handlers
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (isSwiped) return;
-    startXRef.current = e.touches[0].clientX;
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (isSwiped || !trackRef.current) return;
-    const currentX = e.touches[0].clientX;
-    const diff = currentX - startXRef.current;
-    const maxSlide = trackRef.current.clientWidth - 56; // w-11 handle + margins
-    const offset = Math.max(0, Math.min(diff, maxSlide));
-    swipeOffsetRef.current = offset;
-    setSwipeOffset(offset);
-  };
-
-  const handleTouchEnd = () => {
-    if (isSwiped || !trackRef.current) return;
-    const maxSlide = trackRef.current.clientWidth - 56;
-    if (swipeOffsetRef.current >= maxSlide * 0.85) {
-      // Success swipe state
-      swipeOffsetRef.current = maxSlide;
-      setSwipeOffset(maxSlide);
-      setIsSwiped(true);
-      handleSendQuotation("admin");
-      setTimeout(() => {
-        swipeOffsetRef.current = 0;
-        setSwipeOffset(0);
-        setIsSwiped(false);
-      }, 1500);
-    } else {
-      swipeOffsetRef.current = 0;
-      setSwipeOffset(0);
-    }
-  };
-
-  // High-fidelity inline SVG illustrations of product categories
-  const renderCategoryIllustration = (category: string) => {
-    const cat = category.toLowerCase();
-    if (cat.includes("faucet") || cat.includes("tap")) {
-      return (
-        <svg viewBox="0 0 100 100" className="w-14 h-14 text-slate-400 opacity-90 transition-transform duration-300 group-hover:scale-105" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M20 80 L35 80 A 15 15 0 0 0 50 65 L50 40 A 15 15 0 0 1 65 25 L80 25" strokeWidth="3" />
-          <path d="M80 25 L80 32" strokeWidth="3" />
-          <path d="M50 45 L40 45" />
-          <circle cx="36" cy="45" r="3" fill="currentColor" fillOpacity="0.2" />
-          <path d="M15 80 H55" strokeWidth="3.5" />
-          <path d="M80 43 A 3 5 0 0 1 80 51 A 3 5 0 0 1 80 43 Z" fill="currentColor" />
-        </svg>
-      );
-    }
-    if (cat.includes("shower")) {
-      return (
-        <svg viewBox="0 0 100 100" className="w-14 h-14 text-slate-400 opacity-90 transition-transform duration-300 group-hover:scale-105" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M25 20 H50 A 10 10 0 0 1 60 30 V50" strokeWidth="3" />
-          <path d="M40 50 H80 L75 56 H45 Z" fill="currentColor" fillOpacity="0.2" />
-          <path d="M51 62 V80" strokeDasharray="3 3" />
-          <path d="M60 62 V80" strokeDasharray="3 3" />
-          <path d="M69 62 V80" strokeDasharray="3 3" />
-        </svg>
-      );
-    }
-    if (cat.includes("accessory") || cat.includes("fittings")) {
-      return (
-        <svg viewBox="0 0 100 100" className="w-14 h-14 text-slate-400 opacity-90 transition-transform duration-300 group-hover:scale-105" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M25 35 H35 M65 35 H75" strokeWidth="3.5" />
-          <rect x="30" y="30" width="40" height="10" rx="1" fill="currentColor" fillOpacity="0.2" />
-          <path d="M20 40 V50 H80 V40" strokeWidth="2" />
-          <path d="M35 50 V72 A 3 3 0 0 0 38 75 H62 A 3 3 0 0 0 65 72 V50" fill="currentColor" fillOpacity="0.08" />
-          <path d="M35 50 H65" strokeWidth="1" />
-        </svg>
-      );
-    }
-    return (
-      <svg viewBox="0 0 100 100" className="w-14 h-14 text-slate-400 opacity-90 transition-transform duration-300 group-hover:scale-105" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M15 80 H85" strokeWidth="3.5" />
-        <path d="M25 55 H75 L70 79 H30 Z" fill="currentColor" fillOpacity="0.15" />
-        <path d="M50 30 H60 V40" strokeWidth="3" />
-        <path d="M50 30 V55" strokeWidth="2" />
-        <path d="M44 35 H50" />
-      </svg>
-    );
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "HomeGoodsStore",
+    name: BRANDING.companyName,
+    description: BRANDING.metaDescription,
+    url: BRANDING.siteUrl,
+    ...(BRANDING.contactPhone ? { telephone: BRANDING.contactPhone } : {}),
+    ...(BRANDING.contactEmail ? { email: BRANDING.contactEmail } : {}),
+    ...(BRANDING.addressLine
+      ? {
+          address: {
+            "@type": "PostalAddress",
+            addressLocality: BRANDING.addressLine.split(",")[0]?.trim(),
+            addressRegion: "Kerala",
+            addressCountry: "IN",
+          },
+        }
+      : {}),
+    areaServed: "Kerala, India",
   };
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 text-slate-900 selection:bg-brand-900 selection:text-white">
-      
-      {/* Sidebar - Branding, Search, Categories */}
-      <aside className="w-full md:w-64 lg:w-80 md:h-screen md:sticky md:top-0 bg-white border-b md:border-b-0 md:border-r border-slate-200 flex flex-col justify-between p-5 md:p-6 shrink-0 shadow-[2px_0_8px_rgba(15,23,42,0.02)] z-30 overflow-y-auto">
-        <div className="space-y-6">
-          {/* Logo & Branding */}
-          <div className="flex items-center justify-start py-1">
-            <div className="h-11 w-auto flex items-center justify-start">
-              <LogoImage width={180} height={44} className="h-11 w-auto object-contain" />
-            </div>
-          </div>
+    <div className="select-text bg-white text-slate-900">
+      <script
+        type="application/ld+json"
+        // Defends against a "</script><script>..." breakout if any BRANDING
+        // env value ever contained that sequence — JSON.stringify alone
+        // doesn't escape "<".
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
+      />
 
-          <p className="text-xs text-slate-500 leading-relaxed hidden md:block">
-            {BRANDING.tagline}
-          </p>
+      <LandingNav />
 
-          {/* Search Box */}
-          <div className="relative">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search catalog code or description..."
-              className="w-full bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 focus:border-brand-700 rounded-md py-2.5 pl-9 pr-8 text-xs text-slate-900 outline-none transition-all focus:ring-1 focus:ring-brand-700"
-            />
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-3.5 w-3.5 text-slate-400" />
-            </div>
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-900"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* Collections List - Vertical on Desktop, Horizontal Scroll on Mobile */}
-          <div className="space-y-2">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">
-              Categories
-            </span>
-            <div className="flex flex-row md:flex-col gap-1.5 md:gap-1.5 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0 scrollbar-none snap-x snap-mandatory">
-              <button
-                onClick={() => setSelectedCategory(null)}
-                className={`px-3 py-2 text-xs font-semibold rounded-md border text-left whitespace-nowrap snap-start transition-all ${
-                  selectedCategory === null
-                    ? "bg-brand-900 border-brand-900 text-white shadow-sm font-bold"
-                    : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                All Products
-              </button>
-              {categories.map((category) => {
-                const isSelected = selectedCategory === category;
-                return (
-                  <button
-                    key={category}
-                    onClick={() => setSelectedCategory(category)}
-                    className={`px-3 py-2 text-xs font-semibold rounded-md border text-left whitespace-nowrap snap-start transition-all ${
-                      isSelected
-                        ? "bg-brand-900 border-brand-900 text-white shadow-sm font-bold"
-                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                    }`}
-                  >
-                    {category}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Sync Status Button in Sidebar (desktop only) */}
-        <div className="hidden md:flex items-center justify-between border-t border-slate-100 pt-4 mt-6">
-          <span className="text-[10px] text-slate-455 font-bold uppercase tracking-wider">
-            {BRANDING.regionLabel}
-          </span>
-          <button 
-            onClick={loadProducts}
-            className="p-1.5 text-slate-400 hover:text-slate-800 border border-slate-200 hover:bg-slate-50 rounded transition-colors"
-            title="Refresh database"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-slate-500" : ""}`} />
-          </button>
-        </div>
-      </aside>
-
-      {/* Main product area */}
-      <main className="flex-1 p-4 md:p-6 lg:p-8 space-y-4 max-w-[1800px] w-full mx-auto">
+      {/* ── Hero ─────────────────────────────────────────────────────── */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-brand-950 via-brand-900 to-brand-800 text-white">
+        <div className="absolute inset-0 bg-[url('/hero-image.jpg')] bg-cover bg-center mix-blend-overlay opacity-15 pointer-events-none" />
         
-        {/* Mobile Header Info */}
-        <div className="flex md:hidden justify-between items-center bg-white border border-slate-200 p-3 rounded-md shadow-sm shrink-0">
-          <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">
-            {selectedCategory || "All Collections"} ({filteredProducts.length} items)
-          </span>
-          <button 
-            onClick={loadProducts}
-            className="p-1 text-slate-400 hover:text-slate-800 transition-colors"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          </button>
-        </div>
+        {/* Decorative glow blobs */}
+        <div className="pointer-events-none absolute -top-24 -left-20 h-72 w-72 rounded-full bg-brand-500/30 blur-3xl animate-float-slow" />
+        <div className="pointer-events-none absolute top-1/3 -right-24 h-80 w-80 rounded-full bg-brand-400/20 blur-3xl animate-float-slower" />
+        <div className="pointer-events-none absolute bottom-0 left-1/3 h-64 w-64 rounded-full bg-white/10 blur-3xl animate-float-slow" />
 
-        {/* High-density horizontal product listings (2-column in laptop/desktop view) */}
-        {filteredProducts.length === 0 ? (
-          <EmptyState
-            title="No Products Found"
-            message="We couldn't find any products matching your current search or category filters. Try checking the item code or reset the search query."
-          />
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-            {filteredProducts.map((product) => {
-              const cartItem = cart.find((item) => item.product.itemCode === product.itemCode);
-              return (
-                <div
-                  key={product.itemCode}
-                  onClick={() => setSelectedProduct(product)}
-                  className="bg-white border border-slate-200 hover:border-brand-300 rounded-lg p-3.5 flex gap-3.5 transition-all duration-300 shadow-[0_1px_3px_rgba(15,23,42,0.02)] group hover:shadow-[0_8px_20px_rgba(34,32,94,0.08)] cursor-pointer"
-                >
-                  {/* Left Aspect-Square Thumbnail */}
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 bg-slate-50 border border-slate-200/80 rounded-md flex items-center justify-center relative overflow-hidden bg-radial bg-cover">
-                    {product.image ? (
-                      <img
-                        src={product.image}
-                        alt={product.description}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center">
-                        <div className="scale-90">{renderCategoryIllustration(product.category)}</div>
-                      </div>
-                    )}
+        <div
+          className="absolute inset-0 opacity-[0.07]"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 2px 2px, white 1.5px, transparent 0)",
+            backgroundSize: "28px 28px",
+          }}
+        />
 
-                    <div className="absolute top-1 left-1">
-                      <span className="num-mono font-bold text-[8px] bg-brand-900 text-white px-1.5 py-0.2 rounded-sm shadow-sm">
-                        {product.itemCode}
-                      </span>
-                    </div>
-                  </div>
+        {/* Concentric water-ripple motif — on-theme decorative graphic */}
+        <svg
+          className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[46rem] w-[46rem] opacity-[0.07]"
+          viewBox="0 0 200 200"
+          fill="none"
+        >
+          {[24, 46, 68, 90].map((r) => (
+            <circle key={r} cx="100" cy="100" r={r} stroke="white" strokeWidth="0.6" />
+          ))}
+        </svg>
 
-                  {/* Right Description & Details Column */}
-                  <div className="flex-1 flex flex-col justify-between min-w-0">
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center justify-between gap-1.5">
-                        <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 border border-slate-200 rounded uppercase tracking-wider">
-                          {product.category}
-                        </span>
-                        <StockBadge count={product.stockCount} />
-                      </div>
-
-                      <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-snug truncate sm:whitespace-normal sm:line-clamp-2">
-                        {product.description}
-                      </h3>
-                    </div>
-
-                    {/* Pricing and Actions Row */}
-                    <div className="flex flex-col gap-2 border-t border-slate-100 pt-2.5 mt-2.5">
-                      <div>
-                        <span className="text-[9px] text-slate-400 font-bold uppercase block leading-none">Suggested MRP</span>
-                        <span className="num-mono text-sm sm:text-base font-black text-slate-900 mt-1 block">
-                          {formatCurrency(product.mrp)}
-                        </span>
-                      </div>
-
-                      {/* Add to Cart Actions */}
-                      {cartItem ? (
-                        <div
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex items-center justify-between border border-slate-300 bg-white rounded-md overflow-hidden shadow-xs"
-                        >
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleUpdateCartQuantity(product.itemCode, cartItem.quantity - 1);
-                            }}
-                            className="px-3 py-2 hover:bg-slate-50 text-slate-550 hover:text-brand-900 transition-colors"
-                          >
-                            <Minus className="h-3 w-3" />
-                          </button>
-                          <span className="px-2.5 text-xs font-bold num-mono text-slate-900">
-                            {cartItem.quantity}
-                          </span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleUpdateCartQuantity(product.itemCode, cartItem.quantity + 1);
-                            }}
-                            className="px-3 py-2 hover:bg-slate-50 text-slate-550 hover:text-brand-900 transition-colors"
-                          >
-                            <Plus className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAddToCart(product);
-                          }}
-                          className="py-2 px-3.5 bg-brand-900 hover:bg-brand-800 text-white font-bold transition-colors text-xs flex items-center justify-center gap-1.5 rounded-md shadow-xs w-full"
-                        >
-                          <ShoppingCart className="h-3.5 w-3.5" /> Add to Cart
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Footer Branding info */}
-        <footer className="text-center py-8 text-[9px] text-slate-400 font-bold uppercase tracking-widest border-t border-slate-200 mt-10 space-y-1">
-          <div>
-            {BRANDING.companyName.toUpperCase()} &copy; {new Date().getFullYear()}
-            {BRANDING.regionLabel ? ` • ${BRANDING.regionLabel.toUpperCase()}` : ""}
-          </div>
-          {BRANDING.poweredByLabel && (
-            <div className="text-[9px] text-slate-400 font-medium normal-case tracking-normal">
-              Made by{" "}
-              {BRANDING.poweredByUrl ? (
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 md:pt-28 pb-28 md:pb-36 text-center">
+          <ScrollReveal delayMs={0} className="mb-6 flex justify-center">
+            <span className="inline-flex items-center gap-1.5 bg-white/10 backdrop-blur-md border border-white/20 text-white/90 text-[11px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-sm">
+              <Sparkles className="h-3 w-3" /> Wholesale Bath Fittings &amp; Sanitary Ware
+            </span>
+          </ScrollReveal>
+          
+          <ScrollReveal delayMs={100}>
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-[1.05] tracking-[-0.02em] bg-clip-text text-transparent bg-gradient-to-b from-white to-white/80">
+              {BRANDING.companyName}
+            </h1>
+          </ScrollReveal>
+          
+          <ScrollReveal delayMs={200}>
+            <p className="mt-5 text-base sm:text-lg text-white/80 max-w-2xl mx-auto leading-relaxed">
+              {BRANDING.tagline}
+            </p>
+          </ScrollReveal>
+          
+          <ScrollReveal delayMs={300}>
+            <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link
+                href="/catalog"
+                className="group relative w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-white/90 backdrop-blur-md text-brand-950 font-bold uppercase tracking-wide text-sm pl-3 pr-6 py-3 rounded-full shadow-lg border border-white/40 hover:bg-white hover:shadow-xl hover:scale-[1.02] active:scale-[0.97] transition duration-150 ease-out-ui"
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-900 text-white transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6">
+                  <ShoppingBag className="h-3.5 w-3.5" />
+                </span>
+                View Sales Catalogue
+                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+              </Link>
+              {waHref && (
                 <a
-                  href={BRANDING.poweredByUrl}
+                  href={waHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-slate-600 hover:text-slate-900 underline underline-offset-2 transition-colors font-semibold"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white/10 backdrop-blur-md border border-white/25 hover:bg-white/20 hover:scale-[1.02] active:scale-[0.97] text-white font-bold uppercase tracking-wide text-sm px-7 py-3.5 rounded-full shadow-lg transition duration-150 ease-out-ui"
                 >
-                  {BRANDING.poweredByLabel}
+                  <MessageCircle className="h-4 w-4" /> Chat on WhatsApp
                 </a>
-              ) : (
-                <span className="font-semibold text-slate-600">{BRANDING.poweredByLabel}</span>
               )}
             </div>
-          )}
-        </footer>
+          </ScrollReveal>
 
-      </main>
 
-      {/* Floating Cart Button */}
-      {cart.length > 0 && (
-        <button
-          onClick={() => setIsCartOpen(true)}
-          className="fixed bottom-6 right-6 z-40 bg-brand-900 text-white p-4 shadow-2xl hover:bg-brand-800 transition-all flex items-center gap-2 border-2 border-white rounded-full animate-fade-in hover:scale-103 group"
-        >
-          <ShoppingCart className="h-5 w-5" />
-          <span className="text-xs font-bold uppercase tracking-wider hidden sm:inline">Quotation Cart</span>
-          <span className="bg-white text-brand-900 font-black text-xs px-2.5 py-0.5 rounded-full num-mono shadow-sm group-hover:scale-105 transition-transform">
-            {cart.reduce((acc, item) => acc + item.quantity, 0)}
-          </span>
-          <span className="absolute -inset-1 rounded-full border border-brand-800 animate-ping opacity-25 pointer-events-none" />
-        </button>
+
+          {/* Scroll hint */}
+          <div className="hidden sm:flex justify-center mt-12 sm:mt-16">
+            <ChevronDown className="h-5 w-5 text-white/40 animate-scroll-hint" />
+          </div>
+        </div>
+      </section>
+
+      {/* ── Stats strip (overlaps hero/about boundary) ──────────────────── */}
+      {stats.length > 0 && (
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 -mt-14 md:-mt-16 z-10">
+          <ScrollReveal delayMs={400} className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl border border-slate-100 grid grid-cols-2 md:grid-cols-4 divide-y divide-x sm:divide-y-0 divide-slate-100">
+            {stats.map((stat) => (
+              <div key={stat.label} className="flex flex-col items-center justify-center gap-1.5 py-6 px-4 text-center">
+                <stat.icon className="h-5 w-5 text-brand-700 mb-1" />
+                <span className="text-xl sm:text-2xl font-black text-slate-900">{stat.value}</span>
+                <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">{stat.label}</span>
+              </div>
+            ))}
+          </ScrollReveal>
+        </div>
       )}
 
-      {/* Drawer Overlay */}
-      {isCartOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/35 backdrop-blur-xs flex justify-end animate-fade-in">
-          {/* Main Drawer Body */}
-          <div className="bg-white w-full max-w-md h-full flex flex-col shadow-2xl border-l border-slate-250 animate-slide-in text-slate-900">
-            
-            {/* Header */}
-            <div className="bg-brand-900 px-5 py-5 flex items-center justify-between shrink-0 text-white border-b border-brand-950">
-              <div className="flex items-center gap-2.5">
-                <ShoppingBag className="h-5.5 w-5.5 text-brand-200" />
-                <h3 className="font-bold text-base uppercase tracking-wider">Quotation Builder</h3>
-              </div>
-              <button
-                onClick={() => setIsCartOpen(false)}
-                className="p-2 bg-brand-800 hover:bg-brand-700 text-brand-200 hover:text-white border border-brand-700 rounded-md transition-colors"
-              >
-                <X className="h-4.5 w-4.5" />
-              </button>
-            </div>
-
-            {/* Cart Items List */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-5">
-              {cart.length === 0 ? (
-                <div className="text-center py-20 text-slate-400 space-y-4">
-                  <ShoppingCart className="h-14 w-14 mx-auto text-slate-250" />
-                  <p className="font-bold text-xs uppercase tracking-widest">Your quotation cart is empty</p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {/* Cart Header with Clear All Button */}
-                  <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                      Selected Items ({cart.length})
-                    </span>
-                    <button
-                      onClick={() => {
-                        if (confirm("Are you sure you want to clear your cart?")) {
-                          setCart([]);
-                        }
-                      }}
-                      className="text-[10px] font-bold text-red-500 hover:text-red-700 uppercase tracking-wider transition-colors flex items-center gap-1"
-                    >
-                      <Trash2 className="h-3 w-3" /> Clear All
-                    </button>
+      {/* ── About ────────────────────────────────────────────────────── */}
+      <section id="about" className="relative py-16 md:py-28 bg-slate-950 overflow-hidden">
+        <div className="absolute inset-0 bg-[url('/marble-texture.jpg')] bg-cover bg-center opacity-30 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-transparent opacity-5 pointer-events-none" />
+        
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid md:grid-cols-5 gap-10 md:gap-16 items-start">
+            <ScrollReveal className="md:col-span-3 space-y-6">
+              <div className="flex items-center gap-5">
+                {BRANDING.foundedYear && (
+                  <div className="shrink-0 h-20 w-20 rounded-full border border-white/10 flex flex-col items-center justify-center text-center bg-white/5 backdrop-blur-md shadow-2xl">
+                    <span className="text-[8px] font-bold uppercase tracking-widest text-brand-400">Est.</span>
+                    <span className="text-xl font-black text-white leading-none mt-0.5">{BRANDING.foundedYear}</span>
                   </div>
-
-                  {/* Cart Items */}
-                  <div className="space-y-3.5">
-                    {cart.map((item) => (
-                      <div key={item.product.itemCode} className="border border-slate-200 p-3 bg-slate-50/75 rounded-lg flex items-center gap-3.5 relative hover:border-slate-350 transition-colors">
-                        {/* Thumbnail */}
-                        <div className="h-12 w-12 bg-white border border-slate-200 flex items-center justify-center shrink-0 rounded overflow-hidden">
-                          {item.product.image ? (
-                            <img src={item.product.image} alt={item.product.description} className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="h-full w-full bg-slate-100 flex items-center justify-center">
-                              <span className="text-[10px] font-bold text-slate-500 uppercase font-mono">{getProductInitials(item.product.itemCode, item.product.description)}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Details */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="num-mono font-bold text-[9px] bg-brand-900 text-white px-2 py-0.2 rounded-sm">{item.product.itemCode}</span>
-                            <span className="text-[8px] font-bold text-slate-500 bg-slate-100 px-2 py-0.2 rounded-sm uppercase tracking-wide truncate border border-slate-200">{item.product.category}</span>
-                          </div>
-                          <h4 className="text-xs font-bold text-slate-800 truncate mt-1">{item.product.description}</h4>
-
-                          {/* Quantity Controls inside Cart Drawer */}
-                          <div className="flex justify-between items-center mt-3">
-                            <div className="flex items-center border border-slate-300 bg-white rounded overflow-hidden">
-                              <button
-                                onClick={() => handleUpdateCartQuantity(item.product.itemCode, item.quantity - 1)}
-                                className="px-3 py-2 hover:bg-slate-50 active:bg-slate-100 text-slate-500 hover:text-brand-900 transition-colors"
-                              >
-                                <Minus className="h-3 w-3" />
-                              </button>
-                              <span className="px-2.5 text-xs font-bold num-mono text-slate-850 min-w-[1.5rem] text-center">
-                                {item.quantity}
-                              </span>
-                              <button
-                                onClick={() => handleUpdateCartQuantity(item.product.itemCode, item.quantity + 1)}
-                                className="px-3 py-2 hover:bg-slate-50 active:bg-slate-100 text-slate-500 hover:text-brand-900 transition-colors"
-                              >
-                                <Plus className="h-3 w-3" />
-                              </button>
-                            </div>
-                            <span className="num-mono text-xs font-bold text-slate-905">
-                              {formatCurrency(item.product.mrp * item.quantity)}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Delete Button */}
-                        <button
-                          onClick={() => handleRemoveFromCart(item.product.itemCode)}
-                          className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-650 border border-transparent hover:border-slate-200 rounded transition-all shrink-0 self-start"
-                          title="Remove item"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Summary */}
-                  <div className="border-t border-slate-200 pt-4 flex justify-between items-center">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Estimated Total:</span>
-                    <span className="num-mono text-lg font-black text-slate-900">
-                      {formatCurrency(cart.reduce((acc, item) => acc + item.product.mrp * item.quantity, 0))}
-                    </span>
-                  </div>
-
-                  {/* Client Details Form */}
-                  <div className="border-t border-slate-200 pt-4 space-y-4">
-                    <h4 className="text-[10px] font-extrabold text-slate-550 uppercase tracking-widest flex items-center gap-2">
-                      <User className="h-4 w-4 text-slate-400" /> Client Details & Quotation Note
-                    </h4>
-                    
-                    <div className="space-y-3.5">
-                      <div className="space-y-1">
-                        <label htmlFor="clientName" className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-                          Client Name
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            id="clientName"
-                            value={clientName}
-                            onChange={(e) => setClientName(e.target.value)}
-                            placeholder="E.G., Ramachandran K."
-                            className="w-full bg-slate-50 border border-slate-200 focus:border-brand-700 rounded-md py-3 pl-9 pr-3 text-xs text-slate-800 outline-none transition-all"
-                          />
-                          <User className="absolute left-3 top-3 h-3.5 w-3.5 text-slate-400" />
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <label htmlFor="clientPhone" className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-                          Client WhatsApp Phone (Optional)
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            id="clientPhone"
-                            value={clientPhone}
-                            onChange={(e) => setClientPhone(e.target.value)}
-                            placeholder="E.G., 9388833888"
-                            className="w-full bg-slate-50 border border-slate-200 focus:border-brand-700 rounded-md py-3 pl-9 pr-3 text-xs text-slate-800 outline-none num-mono transition-all"
-                          />
-                          <Phone className="absolute left-3 top-3 h-3.5 w-3.5 text-slate-400" />
-                        </div>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label htmlFor="clientNote" className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-                          Remarks / Special Notes
-                        </label>
-                        <div className="relative">
-                          <textarea
-                            id="clientNote"
-                            value={clientNote}
-                            onChange={(e) => setClientNote(e.target.value)}
-                            placeholder="E.G., Requesting 10% discount on health faucets..."
-                            rows={2.5}
-                            className="w-full bg-slate-50 border border-slate-200 focus:border-brand-700 rounded-md py-3 pl-9 pr-3 text-xs text-slate-800 outline-none resize-none transition-all"
-                          />
-                          <FileText className="absolute left-3 top-3 h-3.5 w-3.5 text-slate-400" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Footer Buttons */}
-            {cart.length > 0 && (
-              <div className="bg-slate-50 border-t border-slate-200 p-4 space-y-3.5 shrink-0">
-                {/* Desktop Send to Admin Button */}
-                <button
-                  onClick={() => handleSendQuotation("admin")}
-                  className="hidden md:flex w-full py-3.5 bg-brand-900 hover:bg-brand-800 text-white font-bold transition-colors text-xs uppercase tracking-wider items-center justify-center gap-2 rounded-md shadow-sm"
-                >
-                  <MessageSquare className="h-4 w-4" /> Send to Admin WhatsApp
-                </button>
-
-                {/* Swipe to Send for Mobile Only */}
-                <div className="block md:hidden w-full pt-1">
-                  <div 
-                    ref={trackRef}
-                    className="bg-slate-100/90 border border-slate-300 rounded-full h-14 relative flex items-center justify-center overflow-hidden w-full shadow-inner select-none"
-                  >
-                    {/* Sliding Progress Indicator (Grows with swipe offset) */}
-                    <div
-                      className="absolute left-0 top-0 bottom-0 bg-brand-100 border-r border-brand-200/50 rounded-l-full pointer-events-none transition-all duration-75"
-                      style={{ width: `${swipeOffset + 44}px` }}
-                    />
-
-                    {/* Shimmering Flowing Arrow Guides */}
-                    {!isSwiped && (
-                      <div className="absolute right-6 flex items-center gap-1.5 text-slate-400 pointer-events-none">
-                        <ChevronRight className="h-3.5 w-3.5 animate-swipe-flow [animation-delay:0ms]" />
-                        <ChevronRight className="h-3.5 w-3.5 animate-swipe-flow [animation-delay:200ms]" />
-                        <ChevronRight className="h-3.5 w-3.5 animate-swipe-flow [animation-delay:400ms]" />
-                      </div>
-                    )}
-
-                    <span 
-                      className="text-[11px] font-extrabold uppercase tracking-widest text-slate-500 pointer-events-none transition-opacity duration-150 animate-pulse relative z-10"
-                      style={{ opacity: Math.max(0.1, 1 - (swipeOffset / ((trackRef.current?.clientWidth || 300) - 56)) * 1.5) }}
-                    >
-                      {isSwiped ? "Sending..." : "Swipe to Send to Admin"}
-                    </span>
-                    
-                    {/* Touch Swipe Slider Handle */}
-                    <div
-                      onTouchStart={handleTouchStart}
-                      onTouchMove={handleTouchMove}
-                      onTouchEnd={handleTouchEnd}
-                      style={{ transform: `translateX(${swipeOffset}px)` }}
-                      className={`absolute left-1.5 top-1.5 z-20 h-11 w-11 rounded-full flex items-center justify-center shadow-lg cursor-grab active:cursor-grabbing transition-all duration-75 ${
-                        isSwiped
-                          ? "bg-emerald-600 text-white"
-                          : "bg-brand-900 text-white ring-4 ring-brand-950/10 active:ring-brand-950/20"
-                      }`}
-                    >
-                      {isSwiped ? (
-                        <Send className="h-4.5 w-4.5 animate-bounce" />
-                      ) : (
-                        <MessageSquare className="h-4.5 w-4.5" />
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {clientPhone.trim() && (
-                  <button
-                    onClick={() => handleSendQuotation("client")}
-                    className="w-full py-3 bg-[#15803d] hover:bg-[#166534] text-white font-bold transition-colors text-xs uppercase tracking-wider flex items-center justify-center gap-2 rounded-md shadow-sm"
-                  >
-                    <Send className="h-4 w-4" /> Send to Client WhatsApp
-                  </button>
                 )}
-
-                {/* Copy to Clipboard and Share Actions */}
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleCopyQuoteToClipboard}
-                    className="flex-1 py-2.5 bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200 font-bold transition-all text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 rounded-md"
-                  >
-                    {copied ? (
-                      <>
-                        <Check className="h-3.5 w-3.5 text-emerald-600 animate-in zoom-in-50" /> Copied!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3.5 w-3.5" /> Copy Text
-                      </>
-                    )}
-                  </button>
-                  
-                  <button
-                    onClick={() => handleSendQuotation("custom")}
-                    className="flex-1 py-2.5 bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200 font-bold transition-all text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 rounded-md"
-                  >
-                    <Share2 className="h-3.5 w-3.5" /> Share Custom
-                  </button>
+                <div>
+                  <span className="text-[11px] font-bold text-brand-400 uppercase tracking-widest">About Us</span>
+                  <h2 className="mt-1 text-2xl sm:text-3xl md:text-4xl font-black text-white leading-tight">
+                    Trusted Bath Fittings Specialists
+                  </h2>
                 </div>
               </div>
-            )}
-          </div>
-        </div>
-      )}
 
-      {/* Product Details Highlight Modal */}
-      {selectedProduct && (() => {
-        const cartItem = cart.find((item) => item.product.itemCode === selectedProduct.itemCode);
-        return (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => { setSelectedProduct(null); setIsImageZoomed(false); }}>
-            <div
-              className="bg-white border border-slate-350 max-w-lg w-full rounded-xl overflow-hidden shadow-2xl relative animate-in zoom-in-95 duration-200"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Close Button */}
-              <button
-                onClick={() => { setSelectedProduct(null); setIsImageZoomed(false); }}
-                className="absolute right-4 top-4 bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 p-2 rounded-full transition-colors z-10"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <p className="relative pl-5 border-l-4 border-brand-500 text-lg sm:text-xl font-bold text-white/90 leading-snug">
+                Where luxury meets functionality in the world of sanitary ware.
+              </p>
 
-              {/* Main Content Grid */}
-              <div className="flex flex-col sm:flex-row">
-
-                {/* Left Column: Media / Illustration */}
-                <div
-                  className={`w-full sm:w-2/5 bg-slate-50 border-b sm:border-b-0 sm:border-r border-slate-200 flex items-center justify-center p-6 relative min-h-[160px] sm:min-h-[220px] group/media ${selectedProduct.image ? "cursor-zoom-in" : ""}`}
-                  onClick={() => selectedProduct.image && setIsImageZoomed(true)}
-                >
-                  {selectedProduct.image ? (
-                    <>
-                      <img
-                        src={selectedProduct.image}
-                        alt={selectedProduct.description}
-                        className="w-full h-full object-contain max-h-[180px]"
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center bg-slate-900/0 group-hover/media:bg-slate-900/20 transition-colors">
-                        <div className="bg-white/90 text-slate-700 rounded-full p-2 opacity-0 group-hover/media:opacity-100 transition-opacity shadow-sm">
-                          <ZoomIn className="h-4 w-4" />
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="scale-125 select-none">
-                      {renderCategoryIllustration(selectedProduct.category)}
+              <p className="text-sm sm:text-base text-white/60 leading-relaxed max-w-prose">
+                {BRANDING.aboutTextShort || BRANDING.aboutText}
+              </p>
+            </ScrollReveal>
+            <div className="md:col-span-2 space-y-4 md:pt-2">
+              {[
+                { icon: ShieldCheck, label: "Premium Quality", desc: "Meticulously crafted with superior craftsmanship for lasting durability." },
+                { icon: Droplets, label: "Diverse Styles", desc: "From modern minimalism to classic elegance, for every space." },
+                { icon: Users, label: "Customer First", desc: "A knowledgeable team dedicated to your complete satisfaction." },
+              ].map((item, i) => (
+                <ScrollReveal key={item.label} delayMs={i * 100}>
+                  <div className="group flex items-start gap-4 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-5 transition-all hover:bg-white/10 hover:border-white/20 hover:shadow-2xl hover:scale-[1.02] active:scale-[0.97] duration-150 ease-out-ui">
+                    <div className="shrink-0 h-10 w-10 rounded-xl bg-brand-500/20 text-brand-300 flex items-center justify-center transition-transform group-hover:scale-110 group-hover:-rotate-3">
+                      <item.icon className="h-5 w-5" />
                     </div>
-                  )}
-                  <span className="absolute bottom-3 left-3 num-mono font-bold text-xs bg-brand-900 text-white px-2 py-0.5 rounded shadow-sm">
-                    {selectedProduct.itemCode}
-                  </span>
-                </div>
-
-                {/* Right Column: Detailed Meta info */}
-                <div className="w-full sm:w-3/5 p-6 flex flex-col justify-between">
-                  <div className="space-y-4">
-                    {/* Badge Row */}
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-extrabold text-slate-500 bg-slate-100 px-2 py-0.5 border border-slate-200 rounded uppercase tracking-wider">
-                        {selectedProduct.category}
-                      </span>
-                      <StockBadge count={selectedProduct.stockCount} />
+                    <div>
+                      <div className="text-sm font-bold text-white/90">{item.label}</div>
+                      <div className="text-xs text-white/50 leading-relaxed mt-1">{item.desc}</div>
                     </div>
-
-                    {/* Title */}
-                    <h2 className="text-xl font-extrabold text-slate-900 leading-snug">
-                      {selectedProduct.description}
-                    </h2>
-
-                    {/* Pricing & Stock Details Tag */}
-                    <div className="bg-slate-50 border border-slate-200 p-4 rounded-lg flex items-center justify-between shadow-xs">
-                      <div>
-                        <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider block">Maximum Retail Price (MRP)</span>
-                        <span className="num-mono text-2xl font-black text-slate-900 mt-1 block">
-                          {formatCurrency(selectedProduct.mrp)}
-                        </span>
-                      </div>
-                    </div>
-
                   </div>
-
-                  {/* Footer Actions */}
-                  <div className="border-t border-slate-150 pt-4 mt-6 flex items-center justify-between gap-4">
-                    <div className="text-slate-500 text-[10px] font-bold uppercase">
-                      Quotation Qty
-                    </div>
-
-                    {cartItem ? (
-                      <div className="flex items-center border border-slate-300 bg-white rounded-md overflow-hidden shadow-sm">
-                        <button
-                          onClick={() => handleUpdateCartQuantity(selectedProduct.itemCode, cartItem.quantity - 1)}
-                          className="px-3 py-2 hover:bg-slate-50 text-slate-550 hover:text-brand-900 transition-colors"
-                        >
-                          <Minus className="h-3 w-3" />
-                        </button>
-                        <span className="px-3 text-sm font-bold num-mono text-slate-900">
-                          {cartItem.quantity}
-                        </span>
-                        <button
-                          onClick={() => handleUpdateCartQuantity(selectedProduct.itemCode, cartItem.quantity + 1)}
-                          className="px-3 py-2 hover:bg-slate-50 text-slate-550 hover:text-brand-900 transition-colors"
-                        >
-                          <Plus className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => handleAddToCart(selectedProduct)}
-                        className="py-2 px-4 bg-brand-900 hover:bg-brand-800 text-white font-bold transition-colors text-xs flex items-center gap-2 rounded-md shadow-sm shrink-0"
-                      >
-                        <ShoppingCart className="h-4 w-4" /> Add to Quote
-                      </button>
-                    )}
-                  </div>
-
-                </div>
-
-              </div>
-
+                </ScrollReveal>
+              ))}
             </div>
           </div>
-        );
-      })()}
-
-      {/* Full-screen Image Lightbox */}
-      {isImageZoomed && selectedProduct?.image && (
-        <div
-          className="fixed inset-0 z-[60] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
-          onClick={() => setIsImageZoomed(false)}
-        >
-          <button
-            onClick={() => setIsImageZoomed(false)}
-            className="absolute right-4 top-4 bg-white/10 hover:bg-white/20 text-white p-2 rounded-full transition-colors z-10"
-          >
-            <X className="h-5 w-5" />
-          </button>
-          <img
-            src={selectedProduct.image}
-            alt={selectedProduct.description}
-            className="max-w-full max-h-full object-contain rounded-lg animate-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
-          />
         </div>
+      </section>
+
+      {/* ── Products ─────────────────────────────────────────────────── */}
+      {(BRANDING.productSeries.length > 0 || BRANDING.productTypes.length > 0) && (
+        <section id="products" className="relative py-16 md:py-24 bg-slate-50 border-y border-slate-200 overflow-hidden">
+          <div className="pointer-events-none absolute -top-20 right-0 h-80 w-80 rounded-full bg-brand-100/50 blur-3xl" />
+          <div className="pointer-events-none absolute bottom-0 -left-24 h-64 w-64 rounded-full bg-brand-100/40 blur-3xl" />
+          <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <ScrollReveal className="text-center max-w-2xl mx-auto mb-12">
+              <span className="text-[11px] font-bold text-brand-700 uppercase tracking-widest">Our Products</span>
+              <h2 className="mt-2 text-2xl sm:text-3xl md:text-4xl font-black text-slate-900">
+                A Collection for Every Bathroom
+              </h2>
+              <p className="mt-3 text-sm sm:text-base text-slate-600">
+                Explore our range of series and product categories — from concealed diverters to
+                premium accessories.
+              </p>
+            </ScrollReveal>
+
+            <div className="grid lg:grid-cols-12 gap-6 md:gap-8 items-stretch">
+              <div className="lg:col-span-12 flex flex-col gap-6 md:gap-8">
+              {BRANDING.productSeries.length > 0 && (
+                <ScrollReveal>
+                  <div className="h-full bg-white/90 backdrop-blur-md border border-slate-200 rounded-3xl p-5 md:p-8 shadow-xl">
+                    <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <Layers className="h-3.5 w-3.5 text-brand-500" /> Collections
+                    </h3>
+                    <div className="flex flex-wrap gap-2.5">
+                      {BRANDING.productSeries.map((series, i) => (
+                        <ScrollReveal key={series} delayMs={i * 20}>
+                          <div className="group relative flex items-center gap-2.5 bg-slate-50 border border-slate-200/80 rounded-full px-4 sm:px-5 py-2.5 hover:border-brand-300 hover:bg-white hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 active:scale-95 cursor-default">
+                            <span className="text-xs sm:text-sm font-extrabold text-slate-800 tracking-tight">{series}</span>
+                            <ArrowRight className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-slate-400 group-hover:text-brand-500 group-hover:translate-x-0.5 transition-all" />
+                          </div>
+                        </ScrollReveal>
+                      ))}
+                    </div>
+                  </div>
+                </ScrollReveal>
+              )}
+              {BRANDING.productTypes.length > 0 && (
+                <ScrollReveal delayMs={120}>
+                  <div className="h-full bg-white/90 backdrop-blur-md border border-slate-200 rounded-[32px] p-5 md:p-8 shadow-xl">
+                    <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                      <Grid3x3 className="h-4 w-4 text-brand-500" /> Categories
+                    </h3>
+                    <div className="flex flex-wrap gap-3">
+                      {BRANDING.productTypes.map((type, i) => {
+                        const Icon = getCategoryIcon(type);
+                        return (
+                          <ScrollReveal key={type} delayMs={i * 20}>
+                            <div className="group flex items-center gap-3 bg-white border border-slate-100 rounded-full px-4 sm:px-5 py-2.5 hover:border-brand-200 hover:shadow-[0_4px_20px_rgb(0,0,0,0.06)] hover:-translate-y-0.5 active:scale-95 transition-all duration-300 cursor-default">
+                              <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-slate-50 text-slate-500 flex items-center justify-center transition-all duration-300 group-hover:bg-brand-900 group-hover:text-white group-hover:scale-110 shadow-inner">
+                                <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                              </div>
+                              <span className="text-[10px] sm:text-xs font-extrabold text-slate-700 tracking-widest uppercase">{type}</span>
+                            </div>
+                          </ScrollReveal>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </ScrollReveal>
+              )}
+              </div>
+            </div>
+
+            <ScrollReveal className="text-center mt-12 md:mt-16" delayMs={200}>
+              <Link
+                href="/catalog"
+                className="group btn-sheen relative inline-flex items-center gap-2.5 bg-brand-900 hover:bg-brand-800 text-white font-bold uppercase tracking-wide text-sm pl-3 pr-6 py-3 rounded-full shadow-md hover:shadow-xl hover:scale-[1.02] active:scale-[0.97] transition duration-150 ease-out-ui"
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6">
+                  <ShoppingBag className="h-3.5 w-3.5" />
+                </span>
+                Browse Full Sales Catalogue
+                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+              </Link>
+              <p className="text-xs text-slate-400 mt-3">Pricing &amp; stock availability inside — sales access required.</p>
+            </ScrollReveal>
+          </div>
+        </section>
       )}
 
+      {/* ── Warranty ─────────────────────────────────────────────────── */}
+      <section id="warranty" className="relative py-16 md:py-28 bg-slate-950 overflow-hidden">
+        <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[32rem] w-[32rem] rounded-full bg-brand-500/10 blur-[100px]" />
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <ScrollReveal className="text-center max-w-2xl mx-auto mb-16">
+            <span className="text-[11px] font-bold text-brand-400 uppercase tracking-widest">Quality Assurance</span>
+            <h2 className="mt-2 text-2xl sm:text-3xl md:text-5xl font-black text-white tracking-tight">
+              Warranty You Can Rely On
+            </h2>
+            <p className="mt-3 text-sm sm:text-base text-white/60">
+              Every {BRANDING.companyName} product is backed by a clear, straightforward warranty —
+              no fine print, no surprises.
+            </p>
+          </ScrollReveal>
+
+          <div className="grid sm:grid-cols-3 gap-6 md:gap-8 items-end">
+            {WARRANTIES.map((w, i) => (
+              <ScrollReveal key={w.label} delayMs={i * 120} className={w.tier === "gold" ? "sm:-translate-y-4" : ""}>
+                <div
+                  className={`group relative h-full text-center bg-white/5 border backdrop-blur-md rounded-3xl p-8 transition-all duration-300 hover:-translate-y-2 ${
+                    w.tier === "gold"
+                      ? "border-amber-500/30 shadow-[0_0_50px_rgba(245,158,11,0.15)] hover:shadow-[0_0_60px_rgba(245,158,11,0.25)] hover:border-amber-500/50 pt-10"
+                      : "border-white/10 shadow-lg hover:shadow-2xl hover:border-white/20"
+                  }`}
+                >
+                  {w.ribbon && (
+                    <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap bg-gradient-to-r from-amber-400 to-amber-600 text-slate-900 text-[10px] font-black uppercase tracking-wider px-4 py-1.5 rounded-full shadow-lg">
+                      &#9733; {w.ribbon}
+                    </span>
+                  )}
+                  <div
+                    className={`pointer-events-none absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-100 blur-2xl transition-opacity duration-500 ${w.glow}`}
+                  />
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 h-1 w-16 rounded-full bg-gradient-to-r from-brand-400 to-brand-800 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div
+                    className={`relative mx-auto ${w.tier === "gold" ? "h-24 w-24" : "h-20 w-20"} rounded-full bg-gradient-to-br ${w.gradient} shadow-2xl flex items-center justify-center mb-6 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6`}
+                  >
+                    <div className={`absolute inset-0 rounded-full ring-4 ${w.ring} ring-offset-2 ring-offset-slate-950`} />
+                    <w.icon className={w.tier === "gold" ? "h-10 w-10 text-white" : "h-8 w-8 text-white"} />
+                  </div>
+                  <div className="relative flex items-baseline justify-center gap-1.5">
+                    <span className={`${w.tier === "gold" ? "text-5xl md:text-6xl text-transparent bg-clip-text bg-gradient-to-b from-amber-100 to-amber-500" : "text-4xl md:text-5xl text-white"} font-black`}>{w.years}</span>
+                    <span className="text-sm font-bold text-white/50 uppercase tracking-wide">{w.unit}</span>
+                  </div>
+                  <p className="relative mt-2 text-sm font-bold text-brand-300 uppercase tracking-wide">Warranty</p>
+                  <div className="relative mt-4 h-px w-12 bg-white/10 mx-auto" />
+                  <p className="relative mt-4 text-sm text-white/70">{w.label}</p>
+                </div>
+              </ScrollReveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Services ─────────────────────────────────────────────────── */}
+      <section id="services" className="py-16 md:py-28 bg-slate-50 border-t border-slate-200">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <ScrollReveal className="text-center max-w-2xl mx-auto mb-16">
+            <span className="text-[11px] font-bold text-brand-700 uppercase tracking-widest">What We Offer</span>
+            <h2 className="mt-2 text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tight">Built for B2B Buyers</h2>
+          </ScrollReveal>
+          <div className="grid sm:grid-cols-3 gap-6">
+            {SERVICES.map((s, i) => (
+              <ScrollReveal key={s.title} delayMs={i * 90}>
+                <div className="group h-full bg-white border border-slate-200 hover:border-brand-300 hover:shadow-2xl hover:shadow-brand-900/5 rounded-3xl p-6 md:p-8 transition-all duration-300 hover:-translate-y-2">
+                  <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-brand-800 to-brand-950 text-white flex items-center justify-center mb-6 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3 shadow-lg">
+                    <s.icon className="h-5 w-5" />
+                  </div>
+                  <h3 className="text-base font-bold text-slate-900 mb-2">{s.title}</h3>
+                  <p className="text-sm text-slate-500 leading-relaxed">{s.desc}</p>
+                </div>
+              </ScrollReveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Contact ──────────────────────────────────────────────────── */}
+      <section id="contact" className="relative py-16 md:py-28 bg-slate-950 text-white overflow-hidden">
+        <div className="pointer-events-none absolute top-0 right-0 h-96 w-96 rounded-full bg-brand-600/10 blur-[100px] animate-float-slow" />
+        <div className="pointer-events-none absolute bottom-0 left-0 h-96 w-96 rounded-full bg-brand-400/10 blur-[100px] animate-float-slower" />
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 grid md:grid-cols-2 gap-12 md:gap-20 items-center">
+          <ScrollReveal>
+            <span className="text-[11px] font-bold text-brand-400 uppercase tracking-widest">Get In Touch</span>
+            <h2 className="mt-2 text-2xl sm:text-3xl md:text-5xl font-black tracking-tight">
+              Talk to Our Sales Team
+            </h2>
+            <p className="mt-3 text-sm text-white/70 leading-relaxed max-w-md">
+              {BRANDING.serviceAreaText ||
+                "Reach out to us for wholesale pricing, product samples, or bulk order enquiries."}
+            </p>
+
+            <div className="mt-8 space-y-4">
+              {telHref && (
+                <a href={telHref} className="flex items-center gap-3.5 group">
+                  <div className="h-10 w-10 shrink-0 rounded-md bg-white/10 group-hover:bg-white/20 group-hover:scale-110 flex items-center justify-center transition-all">
+                    <Phone className="h-4 w-4" />
+                  </div>
+                  <span className="text-sm font-semibold">{BRANDING.contactPhone}</span>
+                </a>
+              )}
+              {BRANDING.contactEmail && (
+                <a href={`mailto:${BRANDING.contactEmail}`} className="flex items-center gap-3.5 group">
+                  <div className="h-10 w-10 shrink-0 rounded-md bg-white/10 group-hover:bg-white/20 group-hover:scale-110 flex items-center justify-center transition-all">
+                    <Mail className="h-4 w-4" />
+                  </div>
+                  <span className="text-sm font-semibold">{BRANDING.contactEmail}</span>
+                </a>
+              )}
+              {BRANDING.addressLine && (
+                <a
+                  href={BRANDING.mapUrl || "#"}
+                  target={BRANDING.mapUrl ? "_blank" : undefined}
+                  rel={BRANDING.mapUrl ? "noopener noreferrer" : undefined}
+                  className="flex items-center gap-3.5 group"
+                >
+                  <div className="h-10 w-10 shrink-0 rounded-md bg-white/10 group-hover:bg-white/20 group-hover:scale-110 flex items-center justify-center transition-all">
+                    <MapPin className="h-4 w-4" />
+                  </div>
+                  <span className="text-sm font-semibold">{BRANDING.addressLine}</span>
+                </a>
+              )}
+            </div>
+
+            {waHref && (
+              <a
+                href={waHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-sheen mt-8 inline-flex items-center gap-2 bg-white text-brand-950 font-bold uppercase tracking-wide text-sm px-6 py-3 rounded-md shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+              >
+                <MessageCircle className="h-4 w-4" /> Chat on WhatsApp
+              </a>
+            )}
+          </ScrollReveal>
+
+          {mapsEmbedSrc && (
+            <ScrollReveal delayMs={150}>
+              <div className="rounded-xl overflow-hidden border border-white/15 min-h-[280px] h-full shadow-2xl ring-1 ring-white/5">
+                <iframe
+                  src={mapsEmbedSrc}
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0, minHeight: 280 }}
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title={`${BRANDING.companyName} location map`}
+                />
+              </div>
+            </ScrollReveal>
+          )}
+        </div>
+      </section>
+
+      {/* ── Footer ───────────────────────────────────────────────────── */}
+      <footer className="relative bg-slate-950 text-slate-400 py-10">
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-brand-500/40 to-transparent" />
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <LogoImage width={120} height={30} className="h-7 w-auto object-contain brightness-0 invert opacity-80" />
+          </div>
+          <p className="text-xs text-center sm:text-right">
+            &copy; {new Date().getFullYear()} {BRANDING.companyName}. All rights reserved.
+            {BRANDING.poweredByLabel && (
+              <>
+                {" "}
+                &middot;{" "}
+                {BRANDING.poweredByUrl ? (
+                  <a href={BRANDING.poweredByUrl} className="hover:text-white transition-colors">
+                    {BRANDING.poweredByLabel}
+                  </a>
+                ) : (
+                  BRANDING.poweredByLabel
+                )}
+              </>
+            )}
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }

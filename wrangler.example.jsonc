@@ -48,4 +48,12 @@
 			"remote": true
 		}
 	]
+	// Optional: serve on your own domain(s) instead of the *.workers.dev URL.
+	// Requires the domain to already be an active zone in this Cloudflare
+	// account. Set ADMIN_HOST in .env to the admin hostname you use below so
+	// middleware.ts knows to route it to /admin.
+	// "routes": [
+	// 	{ "pattern": "your-domain.com", "custom_domain": true },
+	// 	{ "pattern": "admin.your-domain.com", "custom_domain": true }
+	// ]
 }

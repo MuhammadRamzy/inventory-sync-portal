@@ -1,4 +1,5 @@
 import { getImagesBucket } from "@/lib/cloudflare";
+import { isCatalogRequestAuthorized } from "@/lib/server/auth";
 
 // `caches` (the Workers Cache API) exists on the real deployed Worker, but
 // isn't polyfilled by OpenNext's local dev shim — guard it so image serving
@@ -8,6 +9,10 @@ function getEdgeCache(): Cache | null {
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ key: string }> }) {
+  if (!(await isCatalogRequestAuthorized(request))) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
   const { key } = await params;
   const cache = getEdgeCache();
 

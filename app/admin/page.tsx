@@ -21,11 +21,12 @@ import {
   Plus,
   Shield,
   Package,
-  XCircle
+  XCircle,
+  Image as ImageIcon
 } from "lucide-react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
-import { AppSettings, Product } from "@/lib/types";
+import { AppSettings, CategoryThresholdMap, Product } from "@/lib/types";
 import {
   fetchProducts,
   createProduct,
@@ -34,7 +35,14 @@ import {
   bulkSyncProducts,
   fetchSettings,
   saveSettings,
+  fetchCategoryThresholds,
+  saveCategoryThresholds,
+  setCatalogPassword as setCatalogPasswordApi,
   uploadImage,
+  checkAdminSession,
+  adminLogin,
+  adminLogout,
+  updateAdminCredentials,
 } from "@/lib/api-client";
 import { formatCurrency, compressImage, parseTallyParticulars } from "@/lib/utils";
 import { BRANDING } from "@/lib/branding";
@@ -63,25 +71,6 @@ interface CsvRowPreview {
   errorDetails?: string;
 }
 
-// Secure SHA-256 Hashing helper
-async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await window.crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-// Credentials retrieval helper
-function getAdminCredentials() {
-  if (typeof window === "undefined") {
-    return { username: "admin", passwordHash: "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918" };
-  }
-  const username = localStorage.getItem("admin_username") || "admin";
-  const passwordHash = localStorage.getItem("admin_password_hash") || "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918";
-  return { username, passwordHash };
-}
-
 export default function AdminCommandCenter() {
   const [activeTab, setActiveTab] = useState<"master" | "manual" | "sync" | "settings">("master");
   const [products, setProducts] = useState<Product[]>([]);
@@ -95,14 +84,31 @@ export default function AdminCommandCenter() {
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [editDescription, setEditDescription] = useState<string>("");
   const [editCategory, setEditCategory] = useState<string>("");
-  const [editRate, setEditRate] = useState<string>("");
+  const [editMrp, setEditMrp] = useState<string>("");
   const [editStock, setEditStock] = useState<string>("");
   const [editImage, setEditImage] = useState<string>("");
   const [editImageUploading, setEditImageUploading] = useState(false);
+  const [editPosterImage, setEditPosterImage] = useState<string>("");
+  const [editPosterImageUploading, setEditPosterImageUploading] = useState(false);
   const [savingRow, setSavingRow] = useState(false);
 
   // --- Settings States ---
   const [whatsappNumber, setWhatsappNumber] = useState("");
+  const [lowStockThreshold, setLowStockThreshold] = useState("50");
+  const [inStockMinQty, setInStockMinQty] = useState("51");
+  // Per-category overrides of the two fields above. `categoryThresholds` is
+  // the last-saved state from the server; `categoryThresholdEdits` holds
+  // in-progress edits keyed by category, only populated once the admin
+  // touches that category's row (see getCategoryThresholdRow below).
+  const [categoryThresholds, setCategoryThresholds] = useState<CategoryThresholdMap>({});
+  const [categoryThresholdEdits, setCategoryThresholdEdits] = useState<
+    Record<string, { enabled: boolean; low: string; inStock: string }>
+  >({});
+  const [savingCategoryThresholds, setSavingCategoryThresholds] = useState(false);
+  const [hasCatalogPassword, setHasCatalogPassword] = useState(false);
+  const [catalogPassword, setCatalogPassword] = useState("");
+  const [confirmCatalogPassword, setConfirmCatalogPassword] = useState("");
+  const [savingCatalogPassword, setSavingCatalogPassword] = useState(false);
   const [currPassword, setCurrPassword] = useState("");
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -114,14 +120,15 @@ export default function AdminCommandCenter() {
     description: "",
     category: BRANDING.defaultCategories[0] as string,
     mrp: "",
-    wholesaleRate: "",
     stockCount: "",
     image: "",
+    posterImage: "",
   });
   const [manualErrors, setManualErrors] = useState<Record<string, string>>({});
   const [isCreatingManualCategory, setIsCreatingManualCategory] = useState(false);
   const [newManualCategoryName, setNewManualCategoryName] = useState("");
   const [manualImageUploading, setManualImageUploading] = useState(false);
+  const [manualPosterUploading, setManualPosterUploading] = useState(false);
   const [submittingManual, setSubmittingManual] = useState(false);
 
   // --- Bulk Tally Sync States ---
@@ -155,44 +162,61 @@ export default function AdminCommandCenter() {
   };
 
   useEffect(() => {
-    const session = localStorage.getItem("admin_auth_session");
-    if (session === "true") {
-      setIsAuthenticated(true);
-    }
-    setCheckingAuth(false);
+    checkAdminSession()
+      .then((session) => {
+        setIsAuthenticated(session.authenticated);
+        if (session.authenticated && session.username) {
+          setNewUsername(session.username);
+        }
+        // Only fetch products once we know whether a session cookie already
+        // exists — calling this unconditionally races the login flow and
+        // (when the sales catalog has a password set) fails with a
+        // confusing 401 before the admin has even seen the login form.
+        if (session.authenticated) {
+          loadProducts();
+        }
+      })
+      .catch((error) => console.error("Failed to check admin session:", error))
+      .finally(() => setCheckingAuth(false));
 
-    loadProducts();
     fetchSettings()
-      .then((settings) => setWhatsappNumber(settings.whatsappNumber))
+      .then((settings) => {
+        setWhatsappNumber(settings.whatsappNumber);
+        setLowStockThreshold(String(settings.lowStockThreshold));
+        setInStockMinQty(String(settings.inStockMinQty));
+        setHasCatalogPassword(settings.hasCatalogPassword);
+      })
       .catch((error) => console.error("Failed to load settings:", error));
 
-    // Prefill settings username
-    const creds = getAdminCredentials();
-    setNewUsername(creds.username);
+    fetchCategoryThresholds()
+      .then(setCategoryThresholds)
+      .catch((error) => console.error("Failed to load category thresholds:", error));
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const creds = getAdminCredentials();
-    const inputHash = await hashPassword(loginPassword);
-
-    if (
-      loginUsername.trim().toLowerCase() === creds.username.toLowerCase() &&
-      inputHash === creds.passwordHash
-    ) {
-      localStorage.setItem("admin_auth_session", "true");
+    const result = await adminLogin(loginUsername.trim(), loginPassword);
+    if (result.success) {
       setIsAuthenticated(true);
       setLoginError("");
       setLoginUsername("");
       setLoginPassword("");
+      checkAdminSession().then((session) => {
+        if (session.authenticated && session.username) setNewUsername(session.username);
+      });
+      // The initial mount-time loadProducts() runs before login and gets a
+      // 401 if the sales catalog has a password set (since /api/products now
+      // requires either a catalog or admin session) — refetch now that we
+      // actually have one.
+      loadProducts();
       showToast("success", `Welcome back, ${ADMIN_USER.name}!`);
     } else {
-      setLoginError("Invalid Operator ID or Password credentials.");
+      setLoginError(result.error || "Invalid Operator ID or Password credentials.");
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("admin_auth_session");
+  const handleLogout = async () => {
+    await adminLogout();
     setIsAuthenticated(false);
     showToast("success", "Session cleared. Operator logged out.");
   };
@@ -212,17 +236,11 @@ export default function AdminCommandCenter() {
       return;
     }
 
-    const creds = getAdminCredentials();
-    const currHash = await hashPassword(currPassword);
-    if (currHash !== creds.passwordHash) {
-      showToast("error", "Current password verification failed.");
+    const result = await updateAdminCredentials(currPassword, newUsername.trim(), newPassword);
+    if (!result.success) {
+      showToast("error", result.error || "Current password verification failed.");
       return;
     }
-
-    // Save updated credentials
-    const newHash = await hashPassword(newPassword);
-    localStorage.setItem("admin_username", newUsername.trim());
-    localStorage.setItem("admin_password_hash", newHash);
 
     // Reset inputs
     setCurrPassword("");
@@ -243,11 +261,136 @@ export default function AdminCommandCenter() {
       showToast("error", "Please enter a valid WhatsApp phone number.");
       return;
     }
-    const result = await saveSettings({ whatsappNumber: cleanNumber });
+    const threshold = parseInt(lowStockThreshold, 10);
+    if (isNaN(threshold) || threshold < 0) {
+      showToast("error", "Please enter a valid low stock quantity.");
+      return;
+    }
+    const inStockMin = parseInt(inStockMinQty, 10);
+    if (isNaN(inStockMin) || inStockMin < 1) {
+      showToast("error", "Please enter a valid in stock quantity.");
+      return;
+    }
+    if (inStockMin <= threshold) {
+      showToast("error", "In stock quantity must be greater than the low stock quantity.");
+      return;
+    }
+    const result = await saveSettings({
+      whatsappNumber: cleanNumber,
+      lowStockThreshold: threshold,
+      inStockMinQty: inStockMin,
+      hasCatalogPassword,
+    });
     if (result.success) {
       showToast("success", "Settings saved successfully.");
     } else {
       showToast("error", result.error || "Failed to save settings.");
+    }
+  };
+
+  // Effective row shown for a category in the Category Stock Thresholds
+  // editor: an in-progress edit if the admin has touched this category this
+  // session, else the last-saved override, else "not customized" (falls
+  // back to the global quantities above).
+  const getCategoryThresholdRow = (category: string) => {
+    if (categoryThresholdEdits[category]) return categoryThresholdEdits[category];
+    const saved = categoryThresholds[category];
+    return {
+      enabled: !!saved,
+      low: String(saved?.lowStockThreshold ?? lowStockThreshold),
+      inStock: String(saved?.inStockMinQty ?? inStockMinQty),
+    };
+  };
+
+  const updateCategoryThresholdRow = (
+    category: string,
+    patch: Partial<{ enabled: boolean; low: string; inStock: string }>
+  ) => {
+    setCategoryThresholdEdits((prev) => ({
+      ...prev,
+      [category]: { ...getCategoryThresholdRow(category), ...patch },
+    }));
+  };
+
+  // Resolves the thresholds actually used to render a StockBadge in the
+  // inventory list — the saved per-category override if one exists, else
+  // the global settings.
+  const resolveDisplayThresholds = (category: string) => {
+    const saved = categoryThresholds[category];
+    return {
+      threshold: saved?.lowStockThreshold ?? (parseInt(lowStockThreshold, 10) || 50),
+      inStockMinQty: saved?.inStockMinQty ?? (parseInt(inStockMinQty, 10) || 51),
+    };
+  };
+
+  const handleSaveCategoryThresholds = async () => {
+    const payload: CategoryThresholdMap = {};
+    for (const category of allCategories) {
+      const row = getCategoryThresholdRow(category);
+      if (!row.enabled) continue;
+      const low = parseInt(row.low, 10);
+      const inStock = parseInt(row.inStock, 10);
+      if (isNaN(low) || low < 0) {
+        showToast("error", `Enter a valid low stock quantity for "${category}".`);
+        return;
+      }
+      if (isNaN(inStock) || inStock < 1) {
+        showToast("error", `Enter a valid in stock quantity for "${category}".`);
+        return;
+      }
+      if (inStock <= low) {
+        showToast("error", `In stock quantity must be greater than low stock quantity for "${category}".`);
+        return;
+      }
+      payload[category] = { lowStockThreshold: low, inStockMinQty: inStock };
+    }
+
+    setSavingCategoryThresholds(true);
+    const result = await saveCategoryThresholds(payload);
+    setSavingCategoryThresholds(false);
+    if (result.success) {
+      setCategoryThresholds(payload);
+      setCategoryThresholdEdits({});
+      showToast("success", "Category stock thresholds saved.");
+      loadProducts(); // Re-derive stockStatus for every product against the new thresholds
+    } else {
+      showToast("error", result.error || "Failed to save category thresholds.");
+    }
+  };
+
+  const handleSetCatalogPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!catalogPassword || catalogPassword !== confirmCatalogPassword) {
+      showToast("error", "Catalog passwords do not match.");
+      return;
+    }
+    setSavingCatalogPassword(true);
+    const result = await setCatalogPasswordApi(catalogPassword);
+    setSavingCatalogPassword(false);
+    if (result.success) {
+      setHasCatalogPassword(true);
+      setCatalogPassword("");
+      setConfirmCatalogPassword("");
+      showToast("success", "Catalog password updated. Sales staff must sign in again.");
+    } else {
+      showToast("error", result.error || "Failed to update catalog password.");
+    }
+  };
+
+  const handleDisableCatalogPassword = async () => {
+    if (!confirm("Disable catalog access protection? Anyone with the catalog link will be able to view it.")) {
+      return;
+    }
+    setSavingCatalogPassword(true);
+    const result = await setCatalogPasswordApi("");
+    setSavingCatalogPassword(false);
+    if (result.success) {
+      setHasCatalogPassword(false);
+      setCatalogPassword("");
+      setConfirmCatalogPassword("");
+      showToast("success", "Catalog password protection disabled.");
+    } else {
+      showToast("error", result.error || "Failed to disable catalog password.");
     }
   };
 
@@ -273,14 +416,16 @@ export default function AdminCommandCenter() {
     setEditingRow(product.itemCode);
     setEditDescription(product.description);
     setEditCategory(product.category);
-    setEditRate(product.wholesaleRate.toString());
+    setEditMrp(product.mrp.toString());
     setEditStock(product.stockCount.toString());
     setEditImage(product.image || "");
+    setEditPosterImage(product.posterImage || "");
   };
 
   const cancelEditing = () => {
     setEditingRow(null);
     setEditImageUploading(false);
+    setEditPosterImageUploading(false);
   };
 
   const handleEditImageSelect = async (file: File) => {
@@ -302,8 +447,29 @@ export default function AdminCommandCenter() {
     }
   };
 
+  const handleEditPosterImageSelect = async (file: File) => {
+    try {
+      // Higher fidelity than product photos — posters usually carry text and
+      // feature callouts that need to stay legible, not just recognizable.
+      const compressed = await compressImage(file, 2000, 2000, 0.95);
+      setEditPosterImage(compressed); // instant local preview
+      setEditPosterImageUploading(true);
+      const result = await uploadImage(compressed, file.name);
+      if ("error" in result) {
+        showToast("error", result.error);
+        setEditPosterImage("");
+      } else {
+        setEditPosterImage(result.url);
+      }
+    } catch {
+      showToast("error", "Failed to compress image.");
+    } finally {
+      setEditPosterImageUploading(false);
+    }
+  };
+
   const saveInlineEdit = async (itemCode: string) => {
-    const rateNum = parseFloat(editRate);
+    const mrpNum = parseFloat(editMrp);
     const stockNum = parseInt(editStock, 10);
 
     if (!editDescription.trim()) {
@@ -314,15 +480,15 @@ export default function AdminCommandCenter() {
       showToast("error", "Category cannot be empty.");
       return;
     }
-    if (isNaN(rateNum) || rateNum <= 0) {
-      showToast("error", "Rate must be a positive number.");
+    if (isNaN(mrpNum) || mrpNum <= 0) {
+      showToast("error", "MRP must be a positive number.");
       return;
     }
     if (isNaN(stockNum) || stockNum < 0) {
       showToast("error", "Stock count must be a non-negative integer.");
       return;
     }
-    if (editImageUploading) {
+    if (editImageUploading || editPosterImageUploading) {
       showToast("error", "Please wait for the image upload to finish.");
       return;
     }
@@ -331,9 +497,10 @@ export default function AdminCommandCenter() {
     const result = await updateProduct(itemCode, {
       description: editDescription.trim(),
       category: editCategory,
-      wholesaleRate: rateNum,
+      mrp: mrpNum,
       stockCount: stockNum,
       image: editImage,
+      posterImage: editPosterImage,
     });
     setSavingRow(false);
 
@@ -413,15 +580,6 @@ export default function AdminCommandCenter() {
       errors.mrp = "MRP must be a positive number.";
     }
 
-    const rateVal = parseFloat(manualForm.wholesaleRate);
-    if (!manualForm.wholesaleRate) {
-      errors.wholesaleRate = "Wholesale Rate is required.";
-    } else if (isNaN(rateVal) || rateVal <= 0) {
-      errors.wholesaleRate = "Wholesale Rate must be a positive number.";
-    } else if (mrpVal && rateVal > mrpVal) {
-      errors.wholesaleRate = "Rate cannot exceed MRP.";
-    }
-
     const stockVal = parseInt(manualForm.stockCount, 10);
     if (!manualForm.stockCount) {
       errors.stockCount = "Stock Count is required.";
@@ -462,10 +620,31 @@ export default function AdminCommandCenter() {
     }
   };
 
+  const handleManualPosterSelect = async (file: File) => {
+    try {
+      // Higher fidelity than product photos — posters usually carry text and
+      // feature callouts that need to stay legible, not just recognizable.
+      const compressed = await compressImage(file, 2000, 2000, 0.95);
+      setManualForm((prev) => ({ ...prev, posterImage: compressed })); // instant local preview
+      setManualPosterUploading(true);
+      const result = await uploadImage(compressed, file.name);
+      if ("error" in result) {
+        showToast("error", result.error);
+        setManualForm((prev) => ({ ...prev, posterImage: "" }));
+      } else {
+        setManualForm((prev) => ({ ...prev, posterImage: result.url }));
+      }
+    } catch {
+      showToast("error", "Failed to compress image.");
+    } finally {
+      setManualPosterUploading(false);
+    }
+  };
+
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateManualForm()) return;
-    if (manualImageUploading) {
+    if (manualImageUploading || manualPosterUploading) {
       showToast("error", "Please wait for the image upload to finish.");
       return;
     }
@@ -476,9 +655,9 @@ export default function AdminCommandCenter() {
       description: manualForm.description.trim(),
       category: manualForm.category,
       mrp: parseFloat(manualForm.mrp),
-      wholesaleRate: parseFloat(manualForm.wholesaleRate),
       stockCount: parseInt(manualForm.stockCount, 10),
       image: manualForm.image,
+      posterImage: manualForm.posterImage,
     });
     setSubmittingManual(false);
 
@@ -490,9 +669,9 @@ export default function AdminCommandCenter() {
         description: "",
         category: BRANDING.defaultCategories[0],
         mrp: "",
-        wholesaleRate: "",
         stockCount: "",
         image: "",
+        posterImage: "",
       });
       setManualErrors({});
       loadProducts();
@@ -901,7 +1080,7 @@ export default function AdminCommandCenter() {
           <div className="flex items-center justify-between pb-4 border-b border-gray-800">
             <div className="flex flex-col items-start gap-1">
               <div className="h-8 w-auto flex items-center justify-start">
-                <LogoImage width={120} height={32} className="h-8 w-auto object-contain invert" />
+                <LogoImage width={120} height={32} className="h-8 w-auto object-contain brightness-0 invert" />
               </div>
               <p className="text-[9px] text-brand-400 font-bold uppercase tracking-widest leading-none mt-1.5 pl-0.5">{BRANDING.regionLabel}</p>
             </div>
@@ -1110,14 +1289,9 @@ export default function AdminCommandCenter() {
                             Category <ArrowUpDown className="h-3 w-3" />
                           </div>
                         </th>
-                        <th className="w-24 text-right cursor-pointer hover:bg-gray-200" onClick={() => handleSort("mrp")}>
+                        <th className="w-32 text-right cursor-pointer hover:bg-gray-200" onClick={() => handleSort("mrp")}>
                           <div className="flex items-center gap-1 justify-end">
                             MRP <ArrowUpDown className="h-3 w-3" />
-                          </div>
-                        </th>
-                        <th className="w-36 text-right cursor-pointer hover:bg-gray-200" onClick={() => handleSort("wholesaleRate")}>
-                          <div className="flex items-center gap-1 justify-end">
-                            Wholesale Rate <ArrowUpDown className="h-3 w-3" />
                           </div>
                         </th>
                         <th className="w-28 text-right cursor-pointer hover:bg-gray-200" onClick={() => handleSort("stockCount")}>
@@ -1132,7 +1306,7 @@ export default function AdminCommandCenter() {
                     <tbody>
                       {filteredMasterProducts.length === 0 ? (
                         <tr>
-                          <td colSpan={9} className="text-center py-8 text-gray-500">
+                          <td colSpan={8} className="text-center py-8 text-gray-500">
                             No records found matching search queries.
                           </td>
                         </tr>
@@ -1144,26 +1318,49 @@ export default function AdminCommandCenter() {
                               <td className="num-mono font-bold">{p.itemCode}</td>
                               <td className="w-16 py-1">
                                 {isEditing ? (
-                                  <div className="relative h-8 w-8 bg-gray-100 border border-dashed border-brand-400 text-gray-400 hover:bg-brand-50 cursor-pointer flex items-center justify-center">
-                                    {editImageUploading ? (
-                                      <RefreshCw className="h-3.5 w-3.5 animate-spin text-brand-500" />
-                                    ) : editImage ? (
-                                      <img src={editImage} alt={p.itemCode} className="h-full w-full object-cover animate-fade-in" />
-                                    ) : (
-                                      <Plus className="h-4 w-4" />
-                                    )}
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      onChange={async (e) => {
-                                        const file = e.target.files?.[0];
-                                        if (file) {
-                                          await handleEditImageSelect(file);
-                                        }
-                                      }}
-                                      className="absolute inset-0 opacity-0 cursor-pointer"
-                                      title="Upload image"
-                                    />
+                                  <div className="flex items-center gap-1">
+                                    <div className="relative h-8 w-8 bg-gray-100 border border-dashed border-brand-400 text-gray-400 hover:bg-brand-50 cursor-pointer flex items-center justify-center" title="Product photo">
+                                      {editImageUploading ? (
+                                        <RefreshCw className="h-3.5 w-3.5 animate-spin text-brand-500" />
+                                      ) : editImage ? (
+                                        <img src={editImage} alt={p.itemCode} className="h-full w-full object-cover animate-fade-in" />
+                                      ) : (
+                                        <Plus className="h-4 w-4" />
+                                      )}
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={async (e) => {
+                                          const file = e.target.files?.[0];
+                                          if (file) {
+                                            await handleEditImageSelect(file);
+                                          }
+                                        }}
+                                        className="absolute inset-0 opacity-0 cursor-pointer"
+                                        title="Upload product photo"
+                                      />
+                                    </div>
+                                    <div className="relative h-8 w-8 bg-gray-100 border border-dashed border-brand-400 text-gray-400 hover:bg-brand-50 cursor-pointer flex items-center justify-center" title="Poster / feature sheet">
+                                      {editPosterImageUploading ? (
+                                        <RefreshCw className="h-3.5 w-3.5 animate-spin text-brand-500" />
+                                      ) : editPosterImage ? (
+                                        <img src={editPosterImage} alt={`${p.itemCode} poster`} className="h-full w-full object-cover animate-fade-in" />
+                                      ) : (
+                                        <ImageIcon className="h-3.5 w-3.5" />
+                                      )}
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={async (e) => {
+                                          const file = e.target.files?.[0];
+                                          if (file) {
+                                            await handleEditPosterImageSelect(file);
+                                          }
+                                        }}
+                                        className="absolute inset-0 opacity-0 cursor-pointer"
+                                        title="Upload poster"
+                                      />
+                                    </div>
                                   </div>
                                 ) : p.image ? (
                                   <img src={p.image} alt={p.itemCode} className="h-8 w-8 object-cover border border-gray-200" />
@@ -1200,19 +1397,18 @@ export default function AdminCommandCenter() {
                                   p.category
                                 )}
                               </td>
-                              <td className="num-mono text-right text-gray-500">{formatCurrency(p.mrp)}</td>
                               <td className="text-right">
                                 {isEditing ? (
                                   <input
                                     type="number"
-                                    value={editRate}
-                                    onChange={(e) => setEditRate(e.target.value)}
+                                    value={editMrp}
+                                    onChange={(e) => setEditMrp(e.target.value)}
                                     className="erp-input num-mono text-right w-24 p-0.5"
                                     step="0.01"
                                   />
                                 ) : (
                                   <span className="num-mono font-bold text-brand-800">
-                                    {formatCurrency(p.wholesaleRate)}
+                                    {formatCurrency(p.mrp)}
                                   </span>
                                 )}
                               </td>
@@ -1229,7 +1425,12 @@ export default function AdminCommandCenter() {
                                 )}
                               </td>
                               <td>
-                                <StockBadge count={isEditing ? parseInt(editStock, 10) || 0 : p.stockCount} />
+                                <StockBadge
+                                  count={isEditing ? parseInt(editStock, 10) || 0 : p.stockCount}
+                                  status={isEditing ? undefined : p.stockStatus}
+                                  threshold={resolveDisplayThresholds(isEditing ? editCategory : p.category).threshold}
+                                  inStockMinQty={resolveDisplayThresholds(isEditing ? editCategory : p.category).inStockMinQty}
+                                />
                               </td>
                               <td className="text-center">
                                 {isEditing ? (
@@ -1295,26 +1496,49 @@ export default function AdminCommandCenter() {
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2.5 min-w-0">
                             {isEditing ? (
-                              <div className="relative h-11 w-11 shrink-0 bg-gray-100 border border-dashed border-brand-400 text-gray-400 hover:bg-brand-50 cursor-pointer flex items-center justify-center">
-                                {editImageUploading ? (
-                                  <RefreshCw className="h-4 w-4 animate-spin text-brand-500" />
-                                ) : editImage ? (
-                                  <img src={editImage} alt={p.itemCode} className="h-full w-full object-cover animate-fade-in" />
-                                ) : (
-                                  <Plus className="h-4 w-4" />
-                                )}
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={async (e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                      await handleEditImageSelect(file);
-                                    }
-                                  }}
-                                  className="absolute inset-0 opacity-0 cursor-pointer"
-                                  title="Upload image"
-                                />
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <div className="relative h-11 w-11 shrink-0 bg-gray-100 border border-dashed border-brand-400 text-gray-400 hover:bg-brand-50 cursor-pointer flex items-center justify-center" title="Product photo">
+                                  {editImageUploading ? (
+                                    <RefreshCw className="h-4 w-4 animate-spin text-brand-500" />
+                                  ) : editImage ? (
+                                    <img src={editImage} alt={p.itemCode} className="h-full w-full object-cover animate-fade-in" />
+                                  ) : (
+                                    <Plus className="h-4 w-4" />
+                                  )}
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={async (e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        await handleEditImageSelect(file);
+                                      }
+                                    }}
+                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                    title="Upload product photo"
+                                  />
+                                </div>
+                                <div className="relative h-11 w-11 shrink-0 bg-gray-100 border border-dashed border-brand-400 text-gray-400 hover:bg-brand-50 cursor-pointer flex items-center justify-center" title="Poster / feature sheet">
+                                  {editPosterImageUploading ? (
+                                    <RefreshCw className="h-4 w-4 animate-spin text-brand-500" />
+                                  ) : editPosterImage ? (
+                                    <img src={editPosterImage} alt={`${p.itemCode} poster`} className="h-full w-full object-cover animate-fade-in" />
+                                  ) : (
+                                    <ImageIcon className="h-4 w-4" />
+                                  )}
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={async (e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        await handleEditPosterImageSelect(file);
+                                      }
+                                    }}
+                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                    title="Upload poster"
+                                  />
+                                </div>
                               </div>
                             ) : p.image ? (
                               <img src={p.image} alt={p.itemCode} className="h-11 w-11 shrink-0 object-cover border border-gray-200" />
@@ -1340,7 +1564,12 @@ export default function AdminCommandCenter() {
                               )}
                             </div>
                           </div>
-                          <StockBadge count={isEditing ? parseInt(editStock, 10) || 0 : p.stockCount} />
+                          <StockBadge
+                                  count={isEditing ? parseInt(editStock, 10) || 0 : p.stockCount}
+                                  status={isEditing ? undefined : p.stockStatus}
+                                  threshold={resolveDisplayThresholds(isEditing ? editCategory : p.category).threshold}
+                                  inStockMinQty={resolveDisplayThresholds(isEditing ? editCategory : p.category).inStockMinQty}
+                                />
                         </div>
 
                         {isEditing ? (
@@ -1354,23 +1583,19 @@ export default function AdminCommandCenter() {
                           <p className="text-xs font-semibold text-gray-800 leading-snug">{p.description}</p>
                         )}
 
-                        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-100">
+                        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100">
                           <div>
                             <span className="text-[9px] text-gray-400 font-bold uppercase block">MRP</span>
-                            <span className="num-mono text-xs text-gray-600">{formatCurrency(p.mrp)}</span>
-                          </div>
-                          <div>
-                            <span className="text-[9px] text-gray-400 font-bold uppercase block">Rate</span>
                             {isEditing ? (
                               <input
                                 type="number"
-                                value={editRate}
-                                onChange={(e) => setEditRate(e.target.value)}
+                                value={editMrp}
+                                onChange={(e) => setEditMrp(e.target.value)}
                                 className="erp-input num-mono text-xs w-full p-0.5"
                                 step="0.01"
                               />
                             ) : (
-                              <span className="num-mono text-xs font-bold text-brand-800">{formatCurrency(p.wholesaleRate)}</span>
+                              <span className="num-mono text-xs font-bold text-brand-800">{formatCurrency(p.mrp)}</span>
                             )}
                           </div>
                           <div>
@@ -1550,8 +1775,8 @@ export default function AdminCommandCenter() {
                   )}
                 </div>
 
-                {/* MRP, Wholesale Rate, Stock */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* MRP, Stock */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label htmlFor="mrp" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
                       MRP (₹) <span className="text-red-500">*</span>
@@ -1570,27 +1795,6 @@ export default function AdminCommandCenter() {
                     />
                     {manualErrors.mrp && (
                       <p className="text-[11px] text-red-600 font-semibold">{manualErrors.mrp}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-1">
-                    <label htmlFor="wholesaleRate" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
-                      Wholesale Rate (₹) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      id="wholesaleRate"
-                      name="wholesaleRate"
-                      value={manualForm.wholesaleRate}
-                      onChange={handleFormChange}
-                      placeholder="0.00"
-                      step="0.01"
-                      className={`w-full erp-input num-mono text-right ${
-                        manualErrors.wholesaleRate ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""
-                      }`}
-                    />
-                    {manualErrors.wholesaleRate && (
-                      <p className="text-[11px] text-red-600 font-semibold">{manualErrors.wholesaleRate}</p>
                     )}
                   </div>
 
@@ -1659,6 +1863,50 @@ export default function AdminCommandCenter() {
                   </div>
                 </div>
 
+                {/* Poster / Feature Sheet Image */}
+                <div className="space-y-1">
+                  <label htmlFor="posterImage" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Product Poster (Optional)
+                  </label>
+                  <div className="flex items-center gap-4 border border-gray-300 p-3 bg-gray-50">
+                    <div className="h-16 w-16 bg-white border border-gray-300 flex items-center justify-center text-gray-400 shrink-0">
+                      {manualPosterUploading ? (
+                        <RefreshCw className="h-5 w-5 animate-spin text-brand-500" />
+                      ) : manualForm.posterImage ? (
+                        <img src={manualForm.posterImage} alt="Poster preview" className="h-full w-full object-cover animate-fade-in" />
+                      ) : (
+                        <ImageIcon className="h-8 w-8" />
+                      )}
+                    </div>
+                    <div className="flex-1 space-y-1 min-w-0">
+                      <input
+                        type="file"
+                        id="posterImage"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            await handleManualPosterSelect(file);
+                          }
+                        }}
+                        className="text-xs text-gray-500 file:mr-4 file:py-1 file:px-3 file:border file:border-gray-300 file:bg-gray-50 file:hover:bg-gray-100 file:text-xs file:font-bold file:uppercase file:rounded-none file:cursor-pointer w-full"
+                      />
+                      <p className="text-[10px] text-gray-400 truncate">
+                        A feature/spec sheet image. Shown as a second swipeable slide in the sales catalog.
+                      </p>
+                    </div>
+                    {manualForm.posterImage && (
+                      <button
+                        type="button"
+                        onClick={() => setManualForm(prev => ({ ...prev, posterImage: "" }))}
+                        className="erp-btn erp-btn-secondary py-1 text-xs shrink-0"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 {/* Form actions */}
                 <div className="pt-4 flex justify-end gap-2 border-t border-gray-200">
                   <button
@@ -1669,9 +1917,9 @@ export default function AdminCommandCenter() {
                         description: "",
                         category: BRANDING.defaultCategories[0],
                         mrp: "",
-                        wholesaleRate: "",
                         stockCount: "",
                         image: "",
+                        posterImage: "",
                       });
                       setManualErrors({});
                     }}
@@ -1728,12 +1976,203 @@ export default function AdminCommandCenter() {
                       Enter the WhatsApp phone number (with country code, no + or spaces) where quotation requests from the sales cart will be directed.
                     </p>
                   </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-gray-100">
+                    <div className="space-y-1">
+                      <label htmlFor="lowStockThreshold" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                        Low Stock Quantity <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        id="lowStockThreshold"
+                        min={0}
+                        value={lowStockThreshold}
+                        onChange={(e) => setLowStockThreshold(e.target.value)}
+                        placeholder="E.G., 50"
+                        className="w-full erp-input num-mono"
+                      />
+                      <p className="text-[10px] text-gray-400">
+                        Stock from 1 up to this number shows &quot;Low Stock&quot; (zero always shows &quot;Out of Stock&quot;).
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label htmlFor="inStockMinQty" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                        In Stock Quantity <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        id="inStockMinQty"
+                        min={1}
+                        value={inStockMinQty}
+                        onChange={(e) => setInStockMinQty(e.target.value)}
+                        placeholder="E.G., 51"
+                        className="w-full erp-input num-mono"
+                      />
+                      <p className="text-[10px] text-gray-400">
+                        Stock at or above this number shows &quot;In Stock&quot;. Must be greater than Low Stock Quantity.
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-gray-400">
+                    Sales staff never see the exact stock count on the catalog, only the status.
+                  </p>
+
                   <div className="pt-4 flex justify-end border-t border-gray-200">
                     <button
                       type="submit"
                       className="erp-btn erp-btn-primary bg-brand-900 border-brand-900 hover:bg-brand-800 text-white font-bold"
                     >
                       Save Settings
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Category Stock Thresholds Card */}
+              <div className="bg-white border border-gray-300 shadow-sm rounded-none animate-fade-in">
+                <div className="bg-gray-50 border-b border-gray-300 px-4 py-2.5">
+                  <span className="font-bold text-xs uppercase tracking-wider text-gray-700 flex items-center gap-1.5">
+                    <Layers className="h-4 w-4 text-brand-900" /> Category Stock Thresholds
+                  </span>
+                </div>
+                <div className="p-4 md:p-6 space-y-4 font-sans text-sm">
+                  <p className="text-[11px] text-gray-500 leading-relaxed">
+                    Override the Low/In Stock quantities above for individual categories — e.g. fast-moving
+                    accessories can use a higher threshold than slow-moving concealed fittings. Any category left
+                    unchecked uses the global quantities.
+                  </p>
+
+                  {allCategories.length === 0 ? (
+                    <p className="text-xs text-gray-400 italic">No categories yet — add products first.</p>
+                  ) : (
+                    <div className="divide-y divide-gray-100 border border-gray-200">
+                      {allCategories.map((category) => {
+                        const row = getCategoryThresholdRow(category);
+                        return (
+                          <div key={category} className="p-3 flex flex-col sm:flex-row sm:items-center gap-3">
+                            <label className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={row.enabled}
+                                onChange={(e) => updateCategoryThresholdRow(category, { enabled: e.target.checked })}
+                                className="h-4 w-4 accent-brand-900 shrink-0"
+                              />
+                              <span className="text-xs font-bold text-gray-800 truncate">{category}</span>
+                            </label>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <div className="space-y-0.5">
+                                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider">
+                                  Low Stock
+                                </label>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={row.low}
+                                  disabled={!row.enabled}
+                                  onChange={(e) => updateCategoryThresholdRow(category, { low: e.target.value })}
+                                  className="erp-input num-mono w-24 disabled:bg-gray-50 disabled:text-gray-400"
+                                />
+                              </div>
+                              <div className="space-y-0.5">
+                                <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider">
+                                  In Stock
+                                </label>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={row.inStock}
+                                  disabled={!row.enabled}
+                                  onChange={(e) => updateCategoryThresholdRow(category, { inStock: e.target.value })}
+                                  className="erp-input num-mono w-24 disabled:bg-gray-50 disabled:text-gray-400"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div className="pt-2 flex justify-end border-t border-gray-200">
+                    <button
+                      type="button"
+                      onClick={handleSaveCategoryThresholds}
+                      disabled={savingCategoryThresholds || allCategories.length === 0}
+                      className="erp-btn erp-btn-primary bg-brand-900 border-brand-900 hover:bg-brand-800 text-white font-bold disabled:opacity-50"
+                    >
+                      {savingCategoryThresholds ? "Saving..." : "Save Category Thresholds"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Catalog Access / Privacy Card */}
+              <div className="bg-white border border-gray-300 shadow-sm rounded-none animate-fade-in">
+                <div className="bg-gray-50 border-b border-gray-300 px-4 py-2.5 flex items-center justify-between">
+                  <span className="font-bold text-xs uppercase tracking-wider text-gray-700 flex items-center gap-1.5">
+                    <Shield className="h-4 w-4 text-brand-900" /> Sales Catalogue Privacy
+                  </span>
+                  <span
+                    className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 border ${
+                      hasCatalogPassword
+                        ? "bg-green-50 text-green-700 border-green-300"
+                        : "bg-yellow-50 text-yellow-700 border-yellow-300"
+                    }`}
+                  >
+                    {hasCatalogPassword ? "Protected" : "Open Access"}
+                  </span>
+                </div>
+                <form onSubmit={handleSetCatalogPassword} className="p-4 md:p-6 space-y-4 font-sans text-sm">
+                  <p className="text-[11px] text-gray-500 leading-relaxed">
+                    Set a shared password sales staff must enter before viewing the catalogue at <span className="num-mono">/catalog</span>.
+                    Leave unset for open access.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label htmlFor="catalogPassword" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                        {hasCatalogPassword ? "New Catalogue Password" : "Set Catalogue Password"}
+                      </label>
+                      <input
+                        type="password"
+                        id="catalogPassword"
+                        value={catalogPassword}
+                        onChange={(e) => setCatalogPassword(e.target.value)}
+                        placeholder="Min 4 characters..."
+                        className="w-full erp-input"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label htmlFor="confirmCatalogPassword" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                        Confirm Password
+                      </label>
+                      <input
+                        type="password"
+                        id="confirmCatalogPassword"
+                        value={confirmCatalogPassword}
+                        onChange={(e) => setConfirmCatalogPassword(e.target.value)}
+                        placeholder="Re-enter password..."
+                        className="w-full erp-input"
+                      />
+                    </div>
+                  </div>
+                  <div className="pt-4 flex flex-wrap justify-end gap-2 border-t border-gray-200">
+                    {hasCatalogPassword && (
+                      <button
+                        type="button"
+                        onClick={handleDisableCatalogPassword}
+                        disabled={savingCatalogPassword}
+                        className="erp-btn erp-btn-secondary text-red-700 border-red-300 hover:bg-red-50 font-bold disabled:opacity-50"
+                      >
+                        Disable Protection
+                      </button>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={savingCatalogPassword}
+                      className="erp-btn erp-btn-primary bg-brand-900 border-brand-900 hover:bg-brand-800 text-white font-bold disabled:opacity-50"
+                    >
+                      {hasCatalogPassword ? "Update Password" : "Set Password"}
                     </button>
                   </div>
                 </form>

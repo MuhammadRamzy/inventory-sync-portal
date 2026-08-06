@@ -1,0 +1,2 @@
+ALTER TABLE `settings` ADD `admin_username` text DEFAULT 'admin' NOT NULL;--> statement-breakpoint
+ALTER TABLE `settings` ADD `admin_password_hash` text DEFAULT '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918' NOT NULL;

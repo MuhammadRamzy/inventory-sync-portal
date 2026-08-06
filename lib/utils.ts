@@ -14,10 +14,21 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-export function getStockStatus(count: number): "In Stock" | "Low Stock" | "Out of Stock" {
-  if (count > 50) return "In Stock";
-  if (count > 0) return "Low Stock";
-  return "Out of Stock";
+// Admin sets both boundaries explicitly (Config Settings): counts from 1 up
+// to lowStockThreshold show "Low Stock"; counts at or above inStockMinQty
+// show "In Stock". If the admin leaves a gap between the two, anything in
+// that gap is conservatively treated as "Low Stock" too rather than
+// "In Stock". If inStockMinQty is misconfigured (not greater than
+// lowStockThreshold), it falls back to lowStockThreshold + 1.
+export function getStockStatus(
+  count: number,
+  lowStockThreshold: number = 50,
+  inStockMinQty: number = 51
+): "In Stock" | "Low Stock" | "Out of Stock" {
+  if (count <= 0) return "Out of Stock";
+  const effectiveInStockMin = inStockMinQty > lowStockThreshold ? inStockMinQty : lowStockThreshold + 1;
+  if (count >= effectiveInStockMin) return "In Stock";
+  return "Low Stock";
 }
 
 export function formatDate(isoString: string): string {
@@ -37,7 +48,11 @@ export function formatDate(isoString: string): string {
   }
 }
 
-export function compressImage(file: File, maxWidth = 400, maxHeight = 400, quality = 0.75): Promise<string> {
+// Defaults sized for the biggest place these images actually get shown —
+// the full-screen lightbox — not the small card thumbnails they're also
+// used for (those just downscale the same source, which stays sharp;
+// upscaling a too-small source is what was making everything blurry).
+export function compressImage(file: File, maxWidth = 1600, maxHeight = 1600, quality = 0.9): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
