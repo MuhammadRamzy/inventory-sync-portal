@@ -428,20 +428,28 @@ export default function AdminCommandCenter() {
     setEditPosterImageUploading(false);
   };
 
+  // Uploads a freshly-selected image (a compressed `data:` URL) to R2 and
+  // returns its served path; an already-stored `/api/images/…` URL or an
+  // empty string (image cleared) is passed straight through. Because the
+  // upload happens here at save-time — not when the file is picked — canceling
+  // an edit or re-picking a file never leaves orphaned objects in R2.
+  const resolveImageForSave = async (
+    value: string,
+    name: string
+  ): Promise<{ url: string } | { error: string }> => {
+    if (!value || !value.startsWith("data:")) return { url: value };
+    const result = await uploadImage(value, name);
+    if ("error" in result) return { error: result.error };
+    return { url: result.url };
+  };
+
   const handleEditImageSelect = async (file: File) => {
     try {
-      const compressed = await compressImage(file);
-      setEditImage(compressed); // instant local preview
       setEditImageUploading(true);
-      const result = await uploadImage(compressed, file.name);
-      if ("error" in result) {
-        showToast("error", result.error);
-        setEditImage("");
-      } else {
-        setEditImage(result.url);
-      }
+      const compressed = await compressImage(file);
+      setEditImage(compressed); // held locally; uploaded on save
     } catch {
-      showToast("error", "Failed to compress image.");
+      showToast("error", "Failed to process image.");
     } finally {
       setEditImageUploading(false);
     }
@@ -449,20 +457,13 @@ export default function AdminCommandCenter() {
 
   const handleEditPosterImageSelect = async (file: File) => {
     try {
+      setEditPosterImageUploading(true);
       // Higher fidelity than product photos — posters usually carry text and
       // feature callouts that need to stay legible, not just recognizable.
       const compressed = await compressImage(file, 2000, 2000, 0.95);
-      setEditPosterImage(compressed); // instant local preview
-      setEditPosterImageUploading(true);
-      const result = await uploadImage(compressed, file.name);
-      if ("error" in result) {
-        showToast("error", result.error);
-        setEditPosterImage("");
-      } else {
-        setEditPosterImage(result.url);
-      }
+      setEditPosterImage(compressed); // held locally; uploaded on save
     } catch {
-      showToast("error", "Failed to compress image.");
+      showToast("error", "Failed to process image.");
     } finally {
       setEditPosterImageUploading(false);
     }
@@ -489,18 +490,33 @@ export default function AdminCommandCenter() {
       return;
     }
     if (editImageUploading || editPosterImageUploading) {
-      showToast("error", "Please wait for the image upload to finish.");
+      showToast("error", "Please wait for the image to finish processing.");
       return;
     }
 
     setSavingRow(true);
+    // Upload any newly-picked photo/poster now, then persist. The server
+    // deletes the previously-stored R2 object whenever the URL changes or is
+    // cleared (see updateProduct in lib/server/products.ts).
+    const img = await resolveImageForSave(editImage, `${itemCode}-photo`);
+    if ("error" in img) {
+      showToast("error", img.error);
+      setSavingRow(false);
+      return;
+    }
+    const poster = await resolveImageForSave(editPosterImage, `${itemCode}-poster`);
+    if ("error" in poster) {
+      showToast("error", poster.error);
+      setSavingRow(false);
+      return;
+    }
     const result = await updateProduct(itemCode, {
       description: editDescription.trim(),
       category: editCategory,
       mrp: mrpNum,
       stockCount: stockNum,
-      image: editImage,
-      posterImage: editPosterImage,
+      image: img.url,
+      posterImage: poster.url,
     });
     setSavingRow(false);
 
@@ -603,18 +619,11 @@ export default function AdminCommandCenter() {
 
   const handleManualImageSelect = async (file: File) => {
     try {
-      const compressed = await compressImage(file);
-      setManualForm((prev) => ({ ...prev, image: compressed })); // instant local preview
       setManualImageUploading(true);
-      const result = await uploadImage(compressed, file.name);
-      if ("error" in result) {
-        showToast("error", result.error);
-        setManualForm((prev) => ({ ...prev, image: "" }));
-      } else {
-        setManualForm((prev) => ({ ...prev, image: result.url }));
-      }
+      const compressed = await compressImage(file);
+      setManualForm((prev) => ({ ...prev, image: compressed })); // held locally; uploaded on submit
     } catch {
-      showToast("error", "Failed to compress image.");
+      showToast("error", "Failed to process image.");
     } finally {
       setManualImageUploading(false);
     }
@@ -622,20 +631,13 @@ export default function AdminCommandCenter() {
 
   const handleManualPosterSelect = async (file: File) => {
     try {
+      setManualPosterUploading(true);
       // Higher fidelity than product photos — posters usually carry text and
       // feature callouts that need to stay legible, not just recognizable.
       const compressed = await compressImage(file, 2000, 2000, 0.95);
-      setManualForm((prev) => ({ ...prev, posterImage: compressed })); // instant local preview
-      setManualPosterUploading(true);
-      const result = await uploadImage(compressed, file.name);
-      if ("error" in result) {
-        showToast("error", result.error);
-        setManualForm((prev) => ({ ...prev, posterImage: "" }));
-      } else {
-        setManualForm((prev) => ({ ...prev, posterImage: result.url }));
-      }
+      setManualForm((prev) => ({ ...prev, posterImage: compressed })); // held locally; uploaded on submit
     } catch {
-      showToast("error", "Failed to compress image.");
+      showToast("error", "Failed to process image.");
     } finally {
       setManualPosterUploading(false);
     }
@@ -645,19 +647,32 @@ export default function AdminCommandCenter() {
     e.preventDefault();
     if (!validateManualForm()) return;
     if (manualImageUploading || manualPosterUploading) {
-      showToast("error", "Please wait for the image upload to finish.");
+      showToast("error", "Please wait for the image to finish processing.");
       return;
     }
 
     setSubmittingManual(true);
+    const codeForName = manualForm.itemCode.trim().toUpperCase() || "product";
+    const img = await resolveImageForSave(manualForm.image, `${codeForName}-photo`);
+    if ("error" in img) {
+      showToast("error", img.error);
+      setSubmittingManual(false);
+      return;
+    }
+    const poster = await resolveImageForSave(manualForm.posterImage, `${codeForName}-poster`);
+    if ("error" in poster) {
+      showToast("error", poster.error);
+      setSubmittingManual(false);
+      return;
+    }
     const result = await createProduct({
       itemCode: manualForm.itemCode.trim().toUpperCase(),
       description: manualForm.description.trim(),
       category: manualForm.category,
       mrp: parseFloat(manualForm.mrp),
       stockCount: parseInt(manualForm.stockCount, 10),
-      image: manualForm.image,
-      posterImage: manualForm.posterImage,
+      image: img.url,
+      posterImage: poster.url,
     });
     setSubmittingManual(false);
 
@@ -1340,6 +1355,16 @@ export default function AdminCommandCenter() {
                                         className="absolute inset-0 opacity-0 cursor-pointer"
                                         title="Upload product photo"
                                       />
+                                      {editImage && !editImageUploading && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => { e.stopPropagation(); e.preventDefault(); setEditImage(""); }}
+                                          className="absolute -top-1.5 -right-1.5 z-20 h-4 w-4 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow"
+                                          title="Remove photo"
+                                        >
+                                          <X className="h-2.5 w-2.5" />
+                                        </button>
+                                      )}
                                     </div>
                                     <div className="relative h-8 w-8 bg-gray-100 border border-dashed border-brand-400 text-gray-400 hover:bg-brand-50 cursor-pointer flex items-center justify-center" title="Poster / feature sheet">
                                       {editPosterImageUploading ? (
@@ -1361,6 +1386,16 @@ export default function AdminCommandCenter() {
                                         className="absolute inset-0 opacity-0 cursor-pointer"
                                         title="Upload poster"
                                       />
+                                      {editPosterImage && !editPosterImageUploading && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => { e.stopPropagation(); e.preventDefault(); setEditPosterImage(""); }}
+                                          className="absolute -top-1.5 -right-1.5 z-20 h-4 w-4 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow"
+                                          title="Remove poster"
+                                        >
+                                          <X className="h-2.5 w-2.5" />
+                                        </button>
+                                      )}
                                     </div>
                                   </div>
                                 ) : p.image ? (
@@ -1518,6 +1553,16 @@ export default function AdminCommandCenter() {
                                     className="absolute inset-0 opacity-0 cursor-pointer"
                                     title="Upload product photo"
                                   />
+                                  {editImage && !editImageUploading && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); e.preventDefault(); setEditImage(""); }}
+                                      className="absolute -top-1.5 -right-1.5 z-20 h-4 w-4 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow"
+                                      title="Remove photo"
+                                    >
+                                      <X className="h-2.5 w-2.5" />
+                                    </button>
+                                  )}
                                 </div>
                                 <div className="relative h-11 w-11 shrink-0 bg-gray-100 border border-dashed border-brand-400 text-gray-400 hover:bg-brand-50 cursor-pointer flex items-center justify-center" title="Poster / feature sheet">
                                   {editPosterImageUploading ? (
@@ -1539,6 +1584,16 @@ export default function AdminCommandCenter() {
                                     className="absolute inset-0 opacity-0 cursor-pointer"
                                     title="Upload poster"
                                   />
+                                  {editPosterImage && !editPosterImageUploading && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); e.preventDefault(); setEditPosterImage(""); }}
+                                      className="absolute -top-1.5 -right-1.5 z-20 h-4 w-4 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow"
+                                      title="Remove poster"
+                                    >
+                                      <X className="h-2.5 w-2.5" />
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             ) : p.image ? (
