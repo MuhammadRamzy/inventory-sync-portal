@@ -64,6 +64,7 @@ export default function SalesBrochure() {
   const [selectedBrand, setSelectedBrand] = useState(BRANDS[0]);
   const [adminWhatsapp, setAdminWhatsapp] = useState("");
   const [copied, setCopied] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   // Swipe to Send States (Mobile only)
   const [isSwiped, setIsSwiped] = useState(false);
@@ -288,6 +289,68 @@ export default function SalesBrochure() {
     const encodedMsg = encodeURIComponent(msg);
     const waUrl = `https://api.whatsapp.com/send?phone=${phone}&text=${encodedMsg}`;
     window.open(waUrl, "_blank");
+  };
+
+  // Share a single product via the device's native share sheet (WhatsApp,
+  // mail, etc.). The product photo + poster (when set) are attached as image
+  // files where the platform supports it (mobile Web Share API level 2); the
+  // caption always carries the item code, name, price and the site URL.
+  // Falls back to opening WhatsApp with the text on desktop/unsupported
+  // browsers, where file sharing isn't available.
+  const handleShareProduct = async (product: Product) => {
+    if (sharing) return;
+    setSharing(true);
+    try {
+      const siteUrl = typeof window !== "undefined" ? window.location.origin : "";
+      const shareText =
+        `*${product.description}*\n` +
+        `Item Code: ${product.itemCode}\n` +
+        `Price: ${formatCurrency(product.mrp)}\n\n` +
+        `${BRANDING.companyName}` +
+        (siteUrl ? `\n${siteUrl}` : "");
+
+      // Fetch the photo + poster (same-origin, so the catalog session cookie
+      // rides along and the auth-gated /api/images route serves them). Any
+      // image that fails to load is skipped — the text still gets shared.
+      const imageUrls = [
+        product.image ? { url: product.image, part: "photo" } : null,
+        product.posterImage ? { url: product.posterImage, part: "poster" } : null,
+      ].filter(Boolean) as { url: string; part: string }[];
+
+      const files: File[] = [];
+      for (const { url, part } of imageUrls) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) continue;
+          const blob = await res.blob();
+          const ext = (blob.type.split("/")[1] || "jpg").split("+")[0];
+          files.push(new File([blob], `${product.itemCode}-${part}.${ext}`, { type: blob.type }));
+        } catch {
+          // Ignore individual image failures — share the text regardless.
+        }
+      }
+
+      const nav = typeof navigator !== "undefined" ? navigator : undefined;
+      if (files.length > 0 && nav?.canShare?.({ files })) {
+        await nav.share({ title: product.description, text: shareText, files });
+        return;
+      }
+      if (nav?.share) {
+        await nav.share({ title: product.description, text: shareText, url: siteUrl || undefined });
+        return;
+      }
+
+      // Desktop / no Web Share API: fall back to WhatsApp with the text
+      // (image attachments aren't possible through a wa.me link).
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, "_blank");
+    } catch (err) {
+      // AbortError = the user dismissed the share sheet; not an error.
+      if ((err as { name?: string })?.name !== "AbortError") {
+        console.error("Failed to share product:", err);
+      }
+    } finally {
+      setSharing(false);
+    }
   };
 
   const getProductInitials = (itemCode: string, description: string) => {
@@ -1061,13 +1124,29 @@ export default function SalesBrochure() {
                 className="bg-white border border-slate-350 max-w-lg w-full rounded-xl overflow-hidden shadow-2xl relative"
                 onClick={(e) => e.stopPropagation()}
               >
-              {/* Close Button */}
-              <button
-                onClick={() => { setSelectedProduct(null); setIsImageZoomed(false); }}
-                className="absolute right-4 top-4 bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 p-2 rounded-full transition-colors z-10"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              {/* Share + Close Buttons */}
+              <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
+                <button
+                  onClick={() => handleShareProduct(selectedProduct)}
+                  disabled={sharing}
+                  className="bg-brand-900 hover:bg-brand-800 text-white p-2 rounded-full transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                  title="Share this product"
+                  aria-label="Share product"
+                >
+                  {sharing ? (
+                    <span className="block h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                  ) : (
+                    <Share2 className="h-4 w-4" />
+                  )}
+                </button>
+                <button
+                  onClick={() => { setSelectedProduct(null); setIsImageZoomed(false); }}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 p-2 rounded-full transition-colors"
+                  aria-label="Close"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
 
               {/* Main Content Grid */}
               <div className="flex flex-col sm:flex-row">
