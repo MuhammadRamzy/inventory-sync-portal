@@ -28,28 +28,55 @@ import LogoImage from "@/components/LogoImage";
 import LandingNav from "@/components/LandingNav";
 import ScrollReveal from "@/components/ScrollReveal";
 
+// Appends the city/region to titles when configured, a strong local-search
+// signal ("... in Kozhikode, Kerala") without hardcoding it into the template.
+const localitySuffix = BRANDING.addressLocality
+  ? ` in ${BRANDING.addressLocality}${BRANDING.addressRegion ? `, ${BRANDING.addressRegion}` : ""}`
+  : "";
+const siteTitle = `${BRANDING.companyName} — Premium Bath Fittings & Sanitary Ware${localitySuffix}`;
+const shareImage = BRANDING.ogImage || BRANDING.logoSrc;
+
 export const metadata: Metadata = {
   metadataBase: new URL(BRANDING.siteUrl),
-  title: `${BRANDING.companyName} — Premium Bath Fittings & Sanitary Ware Wholesaler`,
+  title: siteTitle,
   description: BRANDING.metaDescription,
   keywords: BRANDING.metaKeywords,
+  applicationName: BRANDING.companyName,
+  authors: [{ name: BRANDING.companyName }],
+  creator: BRANDING.companyName,
+  publisher: BRANDING.companyName,
+  category: "Bath Fittings & Sanitary Ware",
   alternates: {
     canonical: "/",
   },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  ...(BRANDING.googleSiteVerification
+    ? { verification: { google: BRANDING.googleSiteVerification } }
+    : {}),
   openGraph: {
-    title: `${BRANDING.companyName} — Premium Bath Fittings & Sanitary Ware`,
+    title: siteTitle,
     description: BRANDING.metaDescription,
     url: BRANDING.siteUrl,
     siteName: BRANDING.companyName,
-    images: [{ url: BRANDING.logoSrc }],
+    images: [{ url: shareImage, width: 1024, height: 1024, alt: `${BRANDING.companyName} — Bath Fittings & Sanitary Ware` }],
     locale: "en_IN",
     type: "website",
   },
   twitter: {
-    card: "summary",
-    title: `${BRANDING.companyName} — Premium Bath Fittings & Sanitary Ware`,
+    card: "summary_large_image",
+    title: siteTitle,
     description: BRANDING.metaDescription,
-    images: [BRANDING.logoSrc],
+    images: [shareImage],
   },
 };
 
@@ -169,25 +196,81 @@ export default function LandingPage() {
     },
   ].filter(Boolean) as { icon: typeof CalendarCheck; value: string; label: string }[];
 
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "HomeGoodsStore",
+  const businessId = `${BRANDING.siteUrl}/#business`;
+
+  // Precise postal address from structured parts, falling back to a best-effort
+  // read of the single addressLine when the parts aren't configured.
+  const postalAddress: Record<string, string> = { "@type": "PostalAddress" };
+  if (BRANDING.streetAddress) postalAddress.streetAddress = BRANDING.streetAddress;
+  const locality = BRANDING.addressLocality || BRANDING.addressLine.split(",")[0]?.trim() || "";
+  if (locality) postalAddress.addressLocality = locality;
+  if (BRANDING.addressRegion) postalAddress.addressRegion = BRANDING.addressRegion;
+  if (BRANDING.postalCode) postalAddress.postalCode = BRANDING.postalCode;
+  postalAddress.addressCountry = BRANDING.addressCountry;
+
+  // A rich LocalBusiness node (helps "bath fittings near me" / location + brand
+  // searches) plus a linked WebSite node, combined in an @graph.
+  const business: Record<string, unknown> = {
+    "@type": BRANDING.businessType,
+    "@id": businessId,
     name: BRANDING.companyName,
+    ...(BRANDING.alternateNames.length ? { alternateName: BRANDING.alternateNames } : {}),
     description: BRANDING.metaDescription,
+    slogan: BRANDING.tagline,
     url: BRANDING.siteUrl,
+    image: new URL(shareImage, BRANDING.siteUrl).toString(),
+    logo: new URL(BRANDING.logoSrc, BRANDING.siteUrl).toString(),
     ...(BRANDING.contactPhone ? { telephone: BRANDING.contactPhone } : {}),
     ...(BRANDING.contactEmail ? { email: BRANDING.contactEmail } : {}),
-    ...(BRANDING.addressLine
+    ...(BRANDING.foundedYear ? { foundingDate: String(BRANDING.foundedYear) } : {}),
+    ...(BRANDING.priceRange ? { priceRange: BRANDING.priceRange } : {}),
+    ...(locality ? { address: postalAddress } : {}),
+    ...(BRANDING.geoLat && BRANDING.geoLng
+      ? { geo: { "@type": "GeoCoordinates", latitude: BRANDING.geoLat, longitude: BRANDING.geoLng } }
+      : {}),
+    ...(BRANDING.mapUrl ? { hasMap: BRANDING.mapUrl } : {}),
+    ...(BRANDING.openingHours.length ? { openingHours: BRANDING.openingHours } : {}),
+    ...(BRANDING.areasServed.length
+      ? { areaServed: BRANDING.areasServed.map((a) => ({ "@type": "AdministrativeArea", name: a })) }
+      : { areaServed: "Kerala, India" }),
+    ...(BRANDING.socialLinks.length ? { sameAs: BRANDING.socialLinks } : {}),
+    ...(BRANDING.metaKeywords.length ? { keywords: BRANDING.metaKeywords.join(", ") } : {}),
+    ...(BRANDING.contactPhone
       ? {
-          address: {
-            "@type": "PostalAddress",
-            addressLocality: BRANDING.addressLine.split(",")[0]?.trim(),
-            addressRegion: "Kerala",
-            addressCountry: "IN",
+          contactPoint: {
+            "@type": "ContactPoint",
+            telephone: BRANDING.contactPhone,
+            contactType: "sales",
+            areaServed: BRANDING.addressRegion || "Kerala",
+            availableLanguage: ["en", "ml", "hi"],
           },
         }
       : {}),
-    areaServed: "Kerala, India",
+    ...(BRANDING.productTypes.length
+      ? {
+          hasOfferCatalog: {
+            "@type": "OfferCatalog",
+            name: `${BRANDING.companyName} — Bath Fittings & Sanitary Ware`,
+            itemListElement: BRANDING.productTypes.map((t) => ({ "@type": "OfferCatalog", name: t })),
+          },
+        }
+      : {}),
+  };
+
+  const website = {
+    "@type": "WebSite",
+    "@id": `${BRANDING.siteUrl}/#website`,
+    url: BRANDING.siteUrl,
+    name: BRANDING.companyName,
+    ...(BRANDING.alternateNames.length ? { alternateName: BRANDING.alternateNames } : {}),
+    description: BRANDING.metaDescription,
+    publisher: { "@id": businessId },
+    inLanguage: "en-IN",
+  };
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [business, website],
   };
 
   return (

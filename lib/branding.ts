@@ -73,6 +73,48 @@ export const BRANDING = {
     .split(",")
     .map((c) => c.trim())
     .filter(Boolean),
+
+  // ── SEO / structured data (LocalBusiness JSON-LD in app/page.tsx) ────────
+  // Schema.org LocalBusiness subtype — e.g. "Store", "HardwareStore".
+  businessType: process.env.NEXT_PUBLIC_BUSINESS_TYPE || "Store",
+  // Alternate brand spellings/short names — helps Google tie bare-brand
+  // searches (e.g. just "Wetta") to this entity via schema `alternateName`.
+  alternateNames: (process.env.NEXT_PUBLIC_ALTERNATE_NAMES || "")
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean),
+  // Structured postal-address parts. When set they build a precise
+  // schema.org PostalAddress; unset, the code falls back to addressLine.
+  streetAddress: process.env.NEXT_PUBLIC_STREET_ADDRESS || "",
+  addressLocality: process.env.NEXT_PUBLIC_ADDRESS_LOCALITY || "",
+  addressRegion: process.env.NEXT_PUBLIC_ADDRESS_REGION || "",
+  postalCode: process.env.NEXT_PUBLIC_POSTAL_CODE || "",
+  addressCountry: process.env.NEXT_PUBLIC_ADDRESS_COUNTRY || "IN",
+  // Exact coordinates (from your Google Business Profile). Left unset, the
+  // GeoCoordinates node is simply omitted rather than guessed.
+  geoLat: process.env.NEXT_PUBLIC_GEO_LAT || "",
+  geoLng: process.env.NEXT_PUBLIC_GEO_LNG || "",
+  // Cities/areas served — powers areaServed for location-intent searches.
+  areasServed: (process.env.NEXT_PUBLIC_AREAS_SERVED || "")
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean),
+  // Opening hours in schema.org text form, e.g. "Mo-Sa 09:00-19:00".
+  openingHours: (process.env.NEXT_PUBLIC_OPENING_HOURS || "")
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean),
+  priceRange: process.env.NEXT_PUBLIC_PRICE_RANGE || "",
+  // Social/other canonical profile URLs for schema `sameAs`.
+  socialLinks: (process.env.NEXT_PUBLIC_SOCIAL_LINKS || "")
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean),
+  // Open Graph / Twitter share image (falls back to the logo if unset).
+  ogImage: process.env.NEXT_PUBLIC_OG_IMAGE || "",
+  // Optional Google Search Console HTML-tag verification token.
+  googleSiteVerification: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || "",
+
   // Server-only (no NEXT_PUBLIC_ prefix — not inlined into client bundles).
   // Only read this from server components/metadata exports, never from
   // client ("use client") components.
