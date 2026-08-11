@@ -513,7 +513,7 @@ export default function SalesBrochure() {
     >
 
       {/* Sidebar - Branding, Search, Categories */}
-      <aside className="w-full md:w-[320px] lg:w-[360px] md:h-screen md:sticky md:top-0 bg-white/70 backdrop-blur-2xl border-b md:border-b-0 md:border-r border-white/50 flex flex-col justify-between p-5 md:p-6 lg:p-8 shrink-0 shadow-[2px_0_30px_rgba(15,23,42,0.03)] z-30 overflow-y-auto">
+      <aside className="w-full md:w-[320px] lg:w-[360px] md:h-screen md:sticky md:top-0 bg-white md:bg-white/70 md:backdrop-blur-2xl border-b md:border-b-0 md:border-r border-slate-200/60 md:border-white/50 flex flex-col justify-between p-5 md:p-6 lg:p-8 shrink-0 shadow-[2px_0_30px_rgba(15,23,42,0.03)] z-30 overflow-y-auto">
         <div className="space-y-8">
           {/* Logo & Branding */}
           <div className="flex items-center justify-between py-1 gap-2">
@@ -611,7 +611,7 @@ export default function SalesBrochure() {
       <main className="flex-1 p-4 md:p-6 lg:p-8 space-y-4 max-w-[1800px] w-full mx-auto">
         
         {/* Mobile Header Info */}
-        <div className="md:hidden sticky top-4 z-40 mb-6 mx-2 flex justify-between items-center bg-white/80 backdrop-blur-2xl border border-white/50 p-3.5 px-5 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.06)] shrink-0 transition-all">
+        <div className="md:hidden sticky top-4 z-40 mb-6 mx-2 flex justify-between items-center bg-white border border-slate-200/70 p-3.5 px-5 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.06)] shrink-0">
           <span className="text-[11px] text-slate-600 font-extrabold uppercase tracking-widest">
             {selectedCategory || "All Collections"} ({filteredProducts.length} items)
           </span>
@@ -637,7 +637,7 @@ export default function SalesBrochure() {
                 <div
                   key={product.itemCode}
                   onClick={() => setSelectedProduct(product)}
-                  className="animate-fade-in-up bg-white/80 backdrop-blur-xl border border-white hover:border-brand-200 rounded-[24px] p-4 flex gap-5 transition-all duration-300 shadow-[0_4px_24px_rgba(15,23,42,0.04)] group hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.12)] hover:-translate-y-1 active:scale-[0.98] cursor-pointer"
+                  className="cv-card animate-fade-in-up bg-white border border-slate-200/70 hover:border-brand-200 rounded-[24px] p-4 flex gap-5 transition-transform duration-300 shadow-[0_4px_24px_rgba(15,23,42,0.04)] group hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.12)] hover:-translate-y-1 active:scale-[0.98] cursor-pointer"
                   style={{ animationDelay: `${Math.min(index * 35, 350)}ms` }}
                 >
                   {/* Left Thumbnail — sized to actually show the product, not just hint at it */}
@@ -646,6 +646,8 @@ export default function SalesBrochure() {
                       <img
                         src={product.image || product.posterImage}
                         alt={product.description}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover select-none pointer-events-none transition-transform duration-300 group-hover:scale-110"
                         draggable={false}
                       />
@@ -656,7 +658,7 @@ export default function SalesBrochure() {
                     )}
 
                     <div className="absolute top-1.5 left-1.5">
-                      <span className="num-mono font-bold text-[9px] bg-white/90 backdrop-blur text-slate-800 border border-slate-200/50 px-2 py-1 rounded-md shadow-sm">
+                      <span className="num-mono font-bold text-[9px] bg-white/95 text-slate-800 border border-slate-200/50 px-2 py-1 rounded-md shadow-sm">
                         {product.itemCode}
                       </span>
                     </div>
@@ -698,7 +700,7 @@ export default function SalesBrochure() {
                       {cartItem ? (
                         <div
                           onClick={(e) => e.stopPropagation()}
-                          className="flex items-center justify-between border border-slate-200 bg-white/50 backdrop-blur-sm rounded-full overflow-hidden shadow-sm"
+                          className="flex items-center justify-between border border-slate-200 bg-white rounded-full overflow-hidden shadow-sm"
                         >
                           <button
                             onClick={(e) => {
@@ -857,7 +859,7 @@ export default function SalesBrochure() {
                         {/* Thumbnail */}
                         <div className="h-12 w-12 bg-white border border-slate-200 flex items-center justify-center shrink-0 rounded overflow-hidden">
                           {(item.product.image || item.product.posterImage) ? (
-                            <img src={item.product.image || item.product.posterImage} alt={item.product.description} className="h-full w-full object-cover select-none pointer-events-none" draggable={false} />
+                            <img src={item.product.image || item.product.posterImage} alt={item.product.description} loading="lazy" decoding="async" className="h-full w-full object-cover select-none pointer-events-none" draggable={false} />
                           ) : (
                             <div className="h-full w-full bg-slate-100 flex items-center justify-center">
                               <span className="text-[10px] font-bold text-slate-500 uppercase font-mono">{getProductInitials(item.product.itemCode, item.product.description)}</span>

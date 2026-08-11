@@ -290,3 +290,12 @@ body {
 .btn-sheen:hover::after {
   left: 130%;
 }
+
+/* Long product grids (100+ items) stay smooth on mobile by letting the
+   browser skip layout/paint for off-screen cards entirely. contain-intrinsic-size
+   reserves an approximate card height so the scrollbar doesn't jump. Ignored
+   by browsers that don't support it, with no visual change. */
+.cv-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 160px;
+}
