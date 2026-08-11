@@ -145,6 +145,23 @@ export default function SalesBrochure() {
     };
   }, [isCartOpen, selectedProduct]);
 
+  // Close the top-most overlay on Escape: the full-screen image lightbox
+  // first, then the product modal, then the cart drawer.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (isImageZoomed) {
+        setIsImageZoomed(false);
+      } else if (selectedProduct) {
+        setSelectedProduct(null);
+      } else if (isCartOpen) {
+        setIsCartOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isImageZoomed, selectedProduct, isCartOpen]);
+
   // Reset the gallery to the first slide (product photo) whenever a new
   // product is opened, and close any lingering zoom from the last one.
   useEffect(() => {
@@ -1249,8 +1266,10 @@ export default function SalesBrochure() {
                 {/* Right Column: Detailed Meta info */}
                 <div className="w-full sm:w-3/5 p-6 flex flex-col justify-between">
                   <div className="space-y-4">
-                    {/* Badge Row */}
-                    <div className="flex items-center justify-between gap-2">
+                    {/* Badge Row — extra right padding on desktop keeps the
+                        stock badge clear of the share/close buttons, which sit
+                        over this column's top-right corner. */}
+                    <div className="flex items-center justify-between gap-2 sm:pr-24">
                       <span className="text-[10px] font-extrabold text-slate-500 bg-slate-100 px-2 py-0.5 border border-slate-200 rounded uppercase tracking-wider">
                         {selectedProduct.category}
                       </span>
