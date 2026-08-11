@@ -12,7 +12,7 @@ export default function CategoryFilterPills({
   onChange,
 }: CategoryFilterPillsProps) {
   return (
-    <div className="flex flex-wrap gap-1.5 scrollbar-none overflow-x-auto py-1">
+    <div className="flex flex-nowrap gap-1.5 scrollbar-none overflow-x-auto py-1">
       <button
         onClick={() => onChange(null)}
         className={`px-3 py-1 text-xs font-semibold uppercase tracking-wider border transition-colors ${

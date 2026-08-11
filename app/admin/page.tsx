@@ -1070,10 +1070,11 @@ export default function AdminCommandCenter() {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-screen bg-gray-100 font-sans">
-      
-      {/* --- Sidebar (Permanent) --- */}
-      <aside className="w-full lg:w-64 bg-gray-900 text-white shrink-0 border-r border-gray-800 flex flex-col justify-between p-4">
+    <div className="flex flex-col lg:flex-row min-h-screen lg:h-screen lg:overflow-hidden bg-gray-100 font-sans">
+
+      {/* --- Sidebar (Permanent) — stays fixed on desktop while the workspace
+          scrolls independently; on mobile it's a normal top bar. --- */}
+      <aside className="w-full lg:w-64 bg-gray-900 text-white shrink-0 border-r border-gray-800 flex flex-col justify-between p-4 lg:h-screen lg:overflow-y-auto">
         <div className="space-y-6">
           
           {/* Logo & Portal Nav */}
@@ -1250,15 +1251,15 @@ export default function AdminCommandCenter() {
               </div>
 
               {/* Search and Filters */}
-              <div className="bg-white p-3 border border-gray-300 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-none">
-                <div className="flex-1 max-w-md">
+              <div className="bg-white p-3 border border-gray-300 shadow-sm flex flex-col md:flex-row md:items-center gap-3 rounded-none">
+                <div className="w-full md:w-64 lg:w-72 md:shrink-0">
                   <SearchBar
                     value={masterSearch}
                     onChange={setMasterSearch}
                     placeholder="Search by code or description..."
                   />
                 </div>
-                <div className="shrink-0">
+                <div className="w-full min-w-0 md:flex-1">
                   <CategoryFilterPills
                     categories={categories}
                     selectedCategory={masterCategory}
