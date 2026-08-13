@@ -22,6 +22,7 @@ export async function createProduct(input: {
   stockCount: number;
   image?: string;
   posterImage?: string;
+  details?: string;
 }): Promise<{ success: boolean; error?: string }> {
   try {
     const res = await fetch("/api/products", {
@@ -45,6 +46,7 @@ export async function updateProduct(
     stockCount: number;
     image: string;
     posterImage: string;
+    details: string;
   }>
 ): Promise<{ success: boolean; error?: string }> {
   try {

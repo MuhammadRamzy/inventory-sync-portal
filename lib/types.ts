@@ -8,6 +8,7 @@ export interface Product {
   lastUpdated: string;
   image?: string; // base64 compressed data url
   posterImage?: string; // feature/spec poster — second image, shown as a swipeable second slide
+  details?: string; // optional longer description shown in the catalog product detail view
 }
 
 export interface AppSettings {

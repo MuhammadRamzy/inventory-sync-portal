@@ -1281,6 +1281,13 @@ export default function SalesBrochure() {
                       {selectedProduct.description}
                     </h2>
 
+                    {/* Optional detailed description (only when the admin added one) */}
+                    {selectedProduct.details && (
+                      <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">
+                        {selectedProduct.details}
+                      </p>
+                    )}
+
                     {/* Pricing & Stock Details Tag */}
                     <div className="bg-slate-50 border border-slate-200 p-4 rounded-lg flex items-center justify-between shadow-xs">
                       <div>

@@ -16,6 +16,11 @@ export const products = sqliteTable("products", {
   // Second, optional image — a feature/spec "poster" for the product, shown
   // as a second swipeable slide in the sales catalog's product detail card.
   posterImageUrl: text("poster_image_url"),
+  // Optional longer description shown in the sales-catalog product detail
+  // view. The `description` column above is really the product name/title;
+  // this is free-form extra detail the admin can add per product, or leave
+  // blank.
+  details: text("details"),
 });
 
 export const settings = sqliteTable("settings", {

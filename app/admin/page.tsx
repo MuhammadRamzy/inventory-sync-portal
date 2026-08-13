@@ -83,6 +83,7 @@ export default function AdminCommandCenter() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [editDescription, setEditDescription] = useState<string>("");
+  const [editDetails, setEditDetails] = useState<string>("");
   const [editCategory, setEditCategory] = useState<string>("");
   const [editMrp, setEditMrp] = useState<string>("");
   const [editStock, setEditStock] = useState<string>("");
@@ -123,6 +124,7 @@ export default function AdminCommandCenter() {
     stockCount: "",
     image: "",
     posterImage: "",
+    details: "",
   });
   const [manualErrors, setManualErrors] = useState<Record<string, string>>({});
   const [isCreatingManualCategory, setIsCreatingManualCategory] = useState(false);
@@ -415,6 +417,7 @@ export default function AdminCommandCenter() {
   const startEditing = (product: Product) => {
     setEditingRow(product.itemCode);
     setEditDescription(product.description);
+    setEditDetails(product.details || "");
     setEditCategory(product.category);
     setEditMrp(product.mrp.toString());
     setEditStock(product.stockCount.toString());
@@ -512,6 +515,7 @@ export default function AdminCommandCenter() {
     }
     const result = await updateProduct(itemCode, {
       description: editDescription.trim(),
+      details: editDetails.trim(),
       category: editCategory,
       mrp: mrpNum,
       stockCount: stockNum,
@@ -673,6 +677,7 @@ export default function AdminCommandCenter() {
       stockCount: parseInt(manualForm.stockCount, 10),
       image: img.url,
       posterImage: poster.url,
+      details: manualForm.details,
     });
     setSubmittingManual(false);
 
@@ -687,6 +692,7 @@ export default function AdminCommandCenter() {
         stockCount: "",
         image: "",
         posterImage: "",
+        details: "",
       });
       setManualErrors({});
       loadProducts();
@@ -1408,12 +1414,22 @@ export default function AdminCommandCenter() {
                               </td>
                               <td className="font-semibold text-gray-800">
                                 {isEditing ? (
-                                  <input
-                                    type="text"
-                                    value={editDescription}
-                                    onChange={(e) => setEditDescription(e.target.value)}
-                                    className="erp-input w-full p-0.5"
-                                  />
+                                  <div className="space-y-1 min-w-[180px]">
+                                    <input
+                                      type="text"
+                                      value={editDescription}
+                                      onChange={(e) => setEditDescription(e.target.value)}
+                                      className="erp-input w-full p-0.5"
+                                      placeholder="Product name"
+                                    />
+                                    <textarea
+                                      value={editDetails}
+                                      onChange={(e) => setEditDetails(e.target.value)}
+                                      rows={2}
+                                      placeholder="Detailed description (optional)"
+                                      className="erp-input w-full p-0.5 text-[11px] font-normal resize-y"
+                                    />
+                                  </div>
                                 ) : (
                                   p.description
                                 )}
@@ -1629,12 +1645,22 @@ export default function AdminCommandCenter() {
                         </div>
 
                         {isEditing ? (
-                          <input
-                            type="text"
-                            value={editDescription}
-                            onChange={(e) => setEditDescription(e.target.value)}
-                            className="erp-input w-full text-xs p-1.5"
-                          />
+                          <div className="space-y-1.5">
+                            <input
+                              type="text"
+                              value={editDescription}
+                              onChange={(e) => setEditDescription(e.target.value)}
+                              className="erp-input w-full text-xs p-1.5"
+                              placeholder="Product name"
+                            />
+                            <textarea
+                              value={editDetails}
+                              onChange={(e) => setEditDetails(e.target.value)}
+                              rows={2}
+                              placeholder="Detailed description (optional)"
+                              className="erp-input w-full text-xs p-1.5 resize-y"
+                            />
+                          </div>
                         ) : (
                           <p className="text-xs font-semibold text-gray-800 leading-snug">{p.description}</p>
                         )}
@@ -1831,6 +1857,26 @@ export default function AdminCommandCenter() {
                   )}
                 </div>
 
+                {/* Detailed Description (Optional) */}
+                <div className="space-y-1">
+                  <label htmlFor="details" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Detailed Description{" "}
+                    <span className="text-gray-400 normal-case tracking-normal font-normal">(Optional)</span>
+                  </label>
+                  <textarea
+                    id="details"
+                    name="details"
+                    value={manualForm.details}
+                    onChange={(e) => setManualForm((prev) => ({ ...prev, details: e.target.value }))}
+                    rows={3}
+                    placeholder="Optional — extra details shown in the sales catalogue (materials, dimensions, finish, warranty…)."
+                    className="w-full erp-input resize-y"
+                  />
+                  <p className="text-[10px] text-gray-400">
+                    Leave blank if not needed. Shown to sales staff in the product detail view.
+                  </p>
+                </div>
+
                 {/* MRP, Stock */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
@@ -1976,6 +2022,7 @@ export default function AdminCommandCenter() {
                         stockCount: "",
                         image: "",
                         posterImage: "",
+                        details: "",
                       });
                       setManualErrors({});
                     }}

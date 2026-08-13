@@ -49,6 +49,7 @@ function toApiProduct(row: ProductRow, config: ThresholdConfig): Product {
     lastUpdated: row.lastUpdated.toISOString(),
     image: row.imageUrl ?? undefined,
     posterImage: row.posterImageUrl ?? undefined,
+    details: row.details ?? undefined,
   };
 }
 
@@ -79,6 +80,7 @@ export async function createProduct(input: {
   stockCount: number;
   image?: string;
   posterImage?: string;
+  details?: string;
 }): Promise<{ success: true; product: Product } | { success: false; error: string }> {
   const db = await getDb();
   const itemCode = input.itemCode.trim().toUpperCase();
@@ -100,6 +102,7 @@ export async function createProduct(input: {
     lastUpdated: new Date(),
     imageUrl: input.image || null,
     posterImageUrl: input.posterImage || null,
+    details: input.details?.trim() || null,
   };
   await db.insert(productsTable).values(row);
   return { success: true, product: toApiProduct(row as ProductRow, config) };
@@ -114,6 +117,7 @@ export async function updateProduct(
     stockCount: number;
     image: string;
     posterImage: string;
+    details: string;
   }>
 ): Promise<{ success: true; product: Product } | { success: false; error: string }> {
   const db = await getDb();
@@ -129,6 +133,7 @@ export async function updateProduct(
   if (updates.mrp !== undefined) setValues.mrp = updates.mrp;
   if (updates.image !== undefined) setValues.imageUrl = updates.image || null;
   if (updates.posterImage !== undefined) setValues.posterImageUrl = updates.posterImage || null;
+  if (updates.details !== undefined) setValues.details = String(updates.details).trim() || null;
   if (updates.stockCount !== undefined) {
     setValues.stockCount = updates.stockCount;
     // Uses the effective category (the one being set in this same update, if

@@ -50,6 +50,7 @@ export async function POST(request: Request) {
       stockCount,
       image: body.image ? String(body.image) : undefined,
       posterImage: body.posterImage ? String(body.posterImage) : undefined,
+      details: body.details !== undefined ? String(body.details) : undefined,
     });
 
     if (!result.success) {
