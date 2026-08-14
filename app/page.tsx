@@ -742,9 +742,14 @@ export default function LandingPage() {
             {BRANDING.poweredByLabel && (
               <>
                 {" "}
-                &middot;{" "}
+                &middot; Developed by{" "}
                 {BRANDING.poweredByUrl ? (
-                  <a href={BRANDING.poweredByUrl} className="hover:text-white transition-colors">
+                  <a
+                    href={BRANDING.poweredByUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-white transition-colors"
+                  >
                     {BRANDING.poweredByLabel}
                   </a>
                 ) : (

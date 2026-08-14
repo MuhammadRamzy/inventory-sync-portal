@@ -768,7 +768,7 @@ export default function SalesBrochure() {
           </div>
           {BRANDING.poweredByLabel && (
             <div className="text-[9px] text-slate-400 font-medium normal-case tracking-normal">
-              Made by{" "}
+              Developed by{" "}
               {BRANDING.poweredByUrl ? (
                 <a
                   href={BRANDING.poweredByUrl}
