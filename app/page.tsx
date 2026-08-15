@@ -60,8 +60,17 @@ import ScrollReveal from "@/components/ScrollReveal";
 const localitySuffix = BRANDING.addressLocality
   ? ` in ${BRANDING.addressLocality}${BRANDING.addressRegion ? `, ${BRANDING.addressRegion}` : ""}`
   : "";
-const siteTitle = `${BRANDING.companyName} — Premium Bath Fittings & Sanitary Ware${localitySuffix}`;
+// Kept under ~60 chars and avoids repeating "Bath Fittings" (already in most
+// brand names) — leads with the B2B intent keyword + location instead.
+const siteTitle = `${BRANDING.companyName} — Wholesale Sanitary Ware${localitySuffix}`;
 const shareImage = BRANDING.ogImage || BRANDING.logoSrc;
+
+// Descriptive H1 subhead: turns the brand-only headline into a keyword- and
+// location-bearing H1, and surfaces the "since {year}" fact as visible,
+// AI-citable prose rather than schema-only metadata. Fully env-driven.
+const heroSubhead = `Wholesale bath fittings & sanitary ware distributor${localitySuffix}${
+  BRANDING.foundedYear ? ` since ${BRANDING.foundedYear}` : ""
+}`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(BRANDING.siteUrl),
@@ -187,6 +196,12 @@ const SERVICES = [
 
 export default function LandingPage() {
   const whatsappDigits = BRANDING.contactPhone.replace(/\D/g, "");
+  // E.164 form (leading "+", no spaces) for schema.org telephone — Google's
+  // preferred, unambiguous format. Assumes India (+91) when no country code
+  // is present, matching the wa.me/tel logic below.
+  const phoneE164 = whatsappDigits
+    ? `+${whatsappDigits.startsWith("91") ? whatsappDigits : `91${whatsappDigits}`}`
+    : "";
   const waHref = whatsappDigits
     ? `https://wa.me/${whatsappDigits.startsWith("91") ? whatsappDigits : `91${whatsappDigits}`}?text=${encodeURIComponent(
         `Hi, I'd like to know more about your products.`
@@ -247,7 +262,7 @@ export default function LandingPage() {
     url: BRANDING.siteUrl,
     image: new URL(shareImage, BRANDING.siteUrl).toString(),
     logo: new URL(BRANDING.logoSrc, BRANDING.siteUrl).toString(),
-    ...(BRANDING.contactPhone ? { telephone: BRANDING.contactPhone } : {}),
+    ...(phoneE164 ? { telephone: phoneE164 } : {}),
     ...(BRANDING.contactEmail ? { email: BRANDING.contactEmail } : {}),
     ...(BRANDING.foundedYear ? { foundingDate: String(BRANDING.foundedYear) } : {}),
     ...(BRANDING.priceRange ? { priceRange: BRANDING.priceRange } : {}),
@@ -266,7 +281,7 @@ export default function LandingPage() {
       ? {
           contactPoint: {
             "@type": "ContactPoint",
-            telephone: BRANDING.contactPhone,
+            telephone: phoneE164,
             contactType: "sales",
             areaServed: BRANDING.addressRegion || "Kerala",
             availableLanguage: ["en", "ml", "hi"],
@@ -351,6 +366,9 @@ export default function LandingPage() {
           <ScrollReveal delayMs={100}>
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-[1.05] tracking-[-0.02em] bg-clip-text text-transparent bg-gradient-to-b from-white to-white/80">
               {BRANDING.companyName}
+              <span className="mt-4 block text-base sm:text-lg md:text-xl font-semibold tracking-normal text-white/70">
+                {heroSubhead}
+              </span>
             </h1>
           </ScrollReveal>
           

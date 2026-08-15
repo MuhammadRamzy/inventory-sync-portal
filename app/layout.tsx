@@ -1,19 +1,20 @@
 import type { Metadata, Viewport } from "next";
-import localFont from "next/font/local";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import PWARegister from "@/components/PWARegister";
 import { BRANDING } from "@/lib/branding";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-});
-
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
+// Self-hosted via next/font (woff2, subsetted, no render-blocking external
+// request or Google preconnect). Exposes `--font-sans`, which globals.css
+// already consumes for `body`. Plus Jakarta Sans is the only family the UI
+// actually renders — the previous Geist (loaded but referenced by a
+// non-matching CSS var, so never applied) and Outfit (loaded, never used)
+// families were dead weight and have been removed.
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  variable: "--font-sans",
+  display: "swap",
 });
 
 // Generic fallback only — the public landing page ("/") sets its own full
@@ -35,8 +36,9 @@ export const viewport: Viewport = {
   themeColor: BRANDING.themeColor,
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // Deliberately no maximumScale/userScalable lock: disabling pinch-zoom is a
+  // WCAG 1.4.4 (Resize Text) failure and a Google mobile-usability signal.
+  // Users must be able to zoom.
 };
 
 export default function RootLayout({
@@ -45,16 +47,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en-IN" className="h-full select-none">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
-      </head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased h-full text-slate-800 bg-slate-50/50`}
-        style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-      >
+    <html lang="en-IN" className={`h-full select-none ${plusJakarta.variable}`}>
+      <body className="antialiased h-full text-slate-800 bg-slate-50/50">
         <PWARegister />
         {children}
       </body>
