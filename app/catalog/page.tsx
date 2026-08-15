@@ -647,7 +647,13 @@ export default function SalesBrochure() {
             message="We couldn't find any products matching your current search or category filters. Try checking the item code or reset the search query."
           />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
+            {/* Fluid column count (rather than fixed md/xl/2xl breakpoints)
+                so cards never end up narrower than they can actually lay
+                out — fixed breakpoints don't account for the sidebar's own
+                width, browser zoom, or in-between monitor resolutions,
+                which is what was causing the price/button row to crowd and
+                overlap on some displays. */}
             {filteredProducts.map((product, index) => {
               const cartItem = cart.find((item) => item.product.itemCode === product.itemCode);
               return (
@@ -704,11 +710,14 @@ export default function SalesBrochure() {
                       </h3>
                     </div>
 
-                    {/* Pricing and Actions Row */}
-                    <div className="flex flex-row items-end justify-between border-t border-slate-200/60 pt-3 mt-3">
-                      <div>
+                    {/* Pricing and Actions Row — flex-wrap + min-w-0 so the
+                        button drops to its own line instead of overlapping
+                        the price on narrower cards, rather than assuming
+                        there's always enough width for both side by side. */}
+                    <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2 border-t border-slate-200/60 pt-3 mt-3">
+                      <div className="min-w-0">
                         <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-widest block leading-none">Suggested MRP</span>
-                        <span className="num-mono text-base sm:text-lg font-black text-slate-900 mt-1 block">
+                        <span className="num-mono text-base sm:text-lg font-black text-slate-900 mt-1 block truncate">
                           {formatCurrency(product.mrp)}
                         </span>
                       </div>
