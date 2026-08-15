@@ -625,7 +625,11 @@ export default function SalesBrochure() {
       </aside>
 
       {/* Main product area */}
-      <main className="flex-1 p-4 md:p-6 lg:p-8 space-y-4 max-w-[1800px] w-full mx-auto">
+      {/* min-w-0 is required here: as a flex child, <main> otherwise defaults
+          to min-width:auto and refuses to shrink below its content's natural
+          width, which forces the whole page wider than the viewport instead
+          of letting the grid below wrap/shrink to fit. */}
+      <main className="flex-1 min-w-0 p-4 md:p-6 lg:p-8 space-y-4 max-w-[1800px] w-full mx-auto">
         
         {/* Mobile Header Info */}
         <div className="md:hidden sticky top-4 z-40 mb-6 mx-2 flex justify-between items-center bg-white border border-slate-200/70 p-3.5 px-5 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.06)] shrink-0">
@@ -660,7 +664,7 @@ export default function SalesBrochure() {
                 <div
                   key={product.itemCode}
                   onClick={() => setSelectedProduct(product)}
-                  className="cv-card animate-fade-in-up bg-white border border-slate-200/70 hover:border-brand-200 rounded-[24px] p-4 flex gap-5 transition-transform duration-300 shadow-[0_4px_24px_rgba(15,23,42,0.04)] group hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.12)] hover:-translate-y-1 active:scale-[0.98] cursor-pointer"
+                  className="cv-card animate-fade-in-up bg-white border border-slate-200/70 hover:border-brand-200 rounded-[24px] p-4 flex gap-5 min-w-0 transition-transform duration-300 shadow-[0_4px_24px_rgba(15,23,42,0.04)] group hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.12)] hover:-translate-y-1 active:scale-[0.98] cursor-pointer"
                   style={{ animationDelay: `${Math.min(index * 35, 350)}ms` }}
                 >
                   {/* Left Thumbnail — sized to actually show the product, not just hint at it */}
